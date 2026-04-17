@@ -1,0 +1,49 @@
+<!doctype html>
+
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Manajemen Liga</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>⚽ Manajemen Liga</h1>
+
+      <div class="card">
+        <h2>Input Tim</h2>
+        <textarea id="teamsInput" placeholder="Masukkan nama tim..."></textarea>
+        <button onclick="generateLeague()">Generate Liga</button>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>📊 Klasemen</h2>
+          <table id="standingsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Team</th>
+                <th>M</th>
+                <th>W</th>
+                <th>D</th>
+                <th>L</th>
+                <th>GF</th>
+                <th>GA</th>
+                <th>Pts</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>⚽ Match</h2>
+          <div id="matchArea">Belum ada pertandingan</div>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
