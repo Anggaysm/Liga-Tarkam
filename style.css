@@ -372,3 +372,16 @@ tr:hover {
 ::-webkit-scrollbar-thumb:hover {
   background: #16a34a;
 }
+
+.footer {
+  text-align: center;
+  padding: 15px;
+  background: #020617;
+  margin-top: 30px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.footer p {
+  margin: 5px 0;
+}
