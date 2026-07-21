@@ -1,450 +1,1198 @@
-let teams = [];
-let matches = [];
-let currentRound = 0;
-let currentMatch = 0;
-let previousRank = {};
+// ============================================
+// DATA STATE - MULTI GRUP
+// ============================================
+let groups = [];
+let currentGroupIndex = 0;
+let currentGroupData = null;
 
-// HISTORY untuk fitur UNDO
-let historyStack = []; // Menyimpan state sebelum submit
+// Data per grup
+let groupTeams = {}; // { groupName: [teamNames] }
+let groupMatches = {}; // { groupName: [matches] }
+let groupCurrentRound = {}; // { groupName: number }
+let groupCurrentMatch = {}; // { groupName: number }
+let groupPreviousRank = {}; // { groupName: { teamName: rank } }
+let groupHistory = {}; // { groupName: [history] }
+let groupTeamStats = {}; // { groupName: { teamName: { played, win, draw, loss, gf, ga, points } } }
+let groupMatchResults = {}; // { groupName: [{ round, matchIndex, home, away, scoreA, scoreB }] }
 
-// Fungsi untuk menyimpan state saat ini ke history
-function saveToHistory() {
-  // Simpan snapshot data sebelum perubahan
-  const snapshot = {
-    teams: JSON.parse(JSON.stringify(teams)), // Deep copy
-    currentRound: currentRound,
-    currentMatch: currentMatch,
-    previousRank: JSON.parse(JSON.stringify(previousRank)),
-  };
-  historyStack.push(snapshot);
+let globalHistoryStack = [];
+let sortMode = "points";
 
-  // Batasi history maksimal 50 langkah
-  if (historyStack.length > 50) {
-    historyStack.shift();
-  }
+// ============================================
+// DOM REFS
+// ============================================
+const groupTabs = document.getElementById("groupTabs");
+const teamsInput = document.getElementById("teamsInput");
+const groupNameInput = document.getElementById("groupNameInput");
+const standingsBody = document.querySelector("#standingsTable tbody");
+const matchArea = document.getElementById("matchArea");
+const fixtureArea = document.getElementById("fixtureArea");
+const teamCount = document.getElementById("teamCount");
+const groupCount = document.getElementById("groupCount");
+const groupTeamCount = document.getElementById("groupTeamCount");
+const currentGroupLabel = document.getElementById("currentGroupLabel");
+const totalMatches = document.getElementById("totalMatches");
+const totalGoals = document.getElementById("totalGoals");
+const avgGoals = document.getElementById("avgGoals");
+const topScorer = document.getElementById("topScorer");
+const matchProgress = document.getElementById("matchProgress");
+const fixtureCount = document.getElementById("fixtureCount");
+const undoBtn = document.getElementById("undoBtn");
+const historyCount = document.getElementById("historyCount");
+const statsGrid = document.getElementById("statsGrid");
 
-  console.log("History tersimpan, total history:", historyStack.length);
-}
+// ============================================
+// INIT - LOAD DATA
+// ============================================
+function loadData() {
+  try {
+    const raw = localStorage.getItem("leagueDataMulti");
+    if (!raw) return false;
+    const data = JSON.parse(raw);
 
-// Fungsi UNDO
-function undoLastMatch() {
-  if (historyStack.length === 0) {
-    alert("Tidak ada yang bisa di-undo!");
+    groups = data.groups || [];
+    groupTeams = data.groupTeams || {};
+    groupMatches = data.groupMatches || {};
+    groupCurrentRound = data.groupCurrentRound || {};
+    groupCurrentMatch = data.groupCurrentMatch || {};
+    groupPreviousRank = data.groupPreviousRank || {};
+    groupHistory = data.groupHistory || {};
+    groupTeamStats = data.groupTeamStats || {};
+    groupMatchResults = data.groupMatchResults || {};
+    currentGroupIndex = data.currentGroupIndex || 0;
+    globalHistoryStack = data.globalHistoryStack || [];
+
+    return true;
+  } catch (e) {
+    console.error("Gagal load:", e);
     return false;
   }
-
-  const lastState = historyStack.pop();
-
-  // Restore data
-  teams = lastState.teams;
-  currentRound = lastState.currentRound;
-  currentMatch = lastState.currentMatch;
-  previousRank = lastState.previousRank;
-
-  // Update tampilan
-  updateStandings();
-  showMatch();
-
-  console.log("Undo berhasil! History tersisa:", historyStack.length);
-  return true;
 }
 
-// Fungsi untuk menyimpan data ke localStorage
 function saveData() {
-  const dataToSave = {
-    teams: teams,
-    matches: matches,
-    currentRound: currentRound,
-    currentMatch: currentMatch,
-    previousRank: previousRank,
-    historyStack: historyStack, // Simpan history juga
-    lastUpdated: new Date().toISOString(),
-  };
-  localStorage.setItem("leagueData", JSON.stringify(dataToSave));
-  console.log("Data tersimpan:", dataToSave.lastUpdated);
-}
-
-// Fungsi untuk memuat data dari localStorage
-function loadData() {
-  const savedData = localStorage.getItem("leagueData");
-
-  if (savedData) {
-    try {
-      const data = JSON.parse(savedData);
-
-      // Pastikan data lengkap sebelum dimuat
-      if (
-        data.teams &&
-        data.matches &&
-        typeof data.currentRound !== "undefined" &&
-        typeof data.currentMatch !== "undefined"
-      ) {
-        teams = data.teams;
-        matches = data.matches;
-        currentRound = data.currentRound;
-        currentMatch = data.currentMatch;
-        previousRank = data.previousRank || {};
-        historyStack = data.historyStack || []; // Load history
-
-        updateStandings();
-        showMatch();
-
-        console.log("Data dimuat dari localStorage");
-        return true;
-      }
-    } catch (e) {
-      console.error("Gagal memuat data:", e);
-    }
+  try {
+    const data = {
+      groups,
+      groupTeams,
+      groupMatches,
+      groupCurrentRound,
+      groupCurrentMatch,
+      groupPreviousRank,
+      groupHistory,
+      groupTeamStats,
+      groupMatchResults,
+      currentGroupIndex,
+      globalHistoryStack,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem("leagueDataMulti", JSON.stringify(data));
+  } catch (e) {
+    console.error("Gagal save:", e);
   }
-  return false;
 }
 
-// Fungsi untuk menghapus data (reset liga)
-function clearData() {
-  localStorage.removeItem("leagueData");
-  historyStack = []; // Kosongkan history
-  console.log("Data localStorage dihapus");
+function clearAllData() {
+  localStorage.removeItem("leagueDataMulti");
+  groups = [];
+  groupTeams = {};
+  groupMatches = {};
+  groupCurrentRound = {};
+  groupCurrentMatch = {};
+  groupPreviousRank = {};
+  groupHistory = {};
+  groupTeamStats = {};
+  groupMatchResults = {};
+  globalHistoryStack = [];
+  currentGroupIndex = 0;
+  currentGroupData = null;
+  updateAll();
+  saveData();
 }
 
-function generateLeague() {
-  const input = document.getElementById("teamsInput").value;
-  const teamNames = input.split("\n").filter((t) => t.trim() !== "");
-
-  if (teamNames.length < 2) {
-    alert("Minimal 2 tim!");
+// ============================================
+// GROUP MANAGEMENT
+// ============================================
+function addGroup() {
+  const name = groupNameInput.value.trim();
+  if (!name) {
+    showToast("⚠️ Masukkan nama grup!", "warning");
     return;
   }
 
-  teams = teamNames.map((name) => ({
-    name: name.trim(),
-    played: 0,
-    win: 0,
-    draw: 0,
-    loss: 0,
-    gf: 0,
-    ga: 0,
-    points: 0,
-  }));
+  if (groups.includes(name)) {
+    showToast("⚠️ Grup sudah ada!", "error");
+    return;
+  }
 
-  // Hapus data lama saat generate baru
-  clearData();
+  groups.push(name);
+  groupTeams[name] = [];
+  groupMatches[name] = [];
+  groupCurrentRound[name] = 0;
+  groupCurrentMatch[name] = 0;
+  groupPreviousRank[name] = {};
+  groupHistory[name] = [];
+  groupTeamStats[name] = {};
+  groupMatchResults[name] = [];
 
-  generateMatches();
-  currentRound = 0;
-  currentMatch = 0;
-  previousRank = {};
-  historyStack = []; // Reset history
+  groupNameInput.value = "";
+  currentGroupIndex = groups.length - 1;
 
-  updateStandings();
-  showMatch();
+  updateAll();
+  saveData();
+  showToast(`✅ Grup "${name}" berhasil ditambahkan!`, "success");
+}
 
-  // Simpan data setelah generate
+function deleteGroup(index) {
+  const name = groups[index];
+  if (!name) return;
+
+  if (!confirm(`Hapus grup "${name}"?`)) return;
+
+  groups.splice(index, 1);
+  delete groupTeams[name];
+  delete groupMatches[name];
+  delete groupCurrentRound[name];
+  delete groupCurrentMatch[name];
+  delete groupPreviousRank[name];
+  delete groupHistory[name];
+  delete groupTeamStats[name];
+  delete groupMatchResults[name];
+
+  if (currentGroupIndex >= groups.length) {
+    currentGroupIndex = Math.max(0, groups.length - 1);
+  }
+
+  updateAll();
+  saveData();
+  showToast(`🗑️ Grup "${name}" dihapus`, "info");
+}
+
+function switchGroup(index) {
+  if (index < 0 || index >= groups.length) return;
+  currentGroupIndex = index;
+  updateAll();
   saveData();
 }
 
-function generateMatches() {
-  matches = [];
-  const totalPutaran = 1;
+function getCurrentGroupName() {
+  return groups[currentGroupIndex] || null;
+}
 
-  for (let p = 0; p < totalPutaran; p++) {
-    let putaranMatches = [];
+function getCurrentGroupTeams() {
+  const name = getCurrentGroupName();
+  return name ? groupTeams[name] || [] : [];
+}
 
-    // Buat semua pasangan unik (i < j)
+function updateGroupTeams() {
+  const name = getCurrentGroupName();
+  if (!name) {
+    showToast("⚠️ Pilih grup terlebih dahulu!", "warning");
+    return;
+  }
+
+  const input = teamsInput.value;
+  const teamNames = input.split("\n").filter((t) => t.trim() !== "");
+
+  if (teamNames.length < 2) {
+    showToast("⚠️ Minimal 2 tim per grup!", "error");
+    return;
+  }
+
+  groupTeams[name] = teamNames.map((t) => t.trim());
+
+  // Reset data grup
+  groupMatches[name] = [];
+  groupCurrentRound[name] = 0;
+  groupCurrentMatch[name] = 0;
+  groupPreviousRank[name] = {};
+  groupHistory[name] = [];
+  groupTeamStats[name] = {};
+  groupMatchResults[name] = [];
+
+  updateAll();
+  saveData();
+  showToast(`✅ Tim di grup "${name}" berhasil diupdate!`, "success");
+}
+
+function loadExampleTeams() {
+  const examples = [
+    "Persija",
+    "Persib",
+    "Arema",
+    "Bali United",
+    "PSIS",
+    "Borneo",
+  ];
+  teamsInput.value = examples.join("\n");
+  updateTeamCount();
+}
+
+// ============================================
+// GENERATE
+// ============================================
+function generateMatchesForGroup(groupName) {
+  const teams = groupTeams[groupName] || [];
+  if (teams.length < 2) return false;
+
+  const matches = [];
+  const totalRounds = 1;
+
+  for (let r = 0; r < totalRounds; r++) {
+    const roundMatches = [];
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
-        if (p === 0) {
-          putaranMatches.push({ home: i, away: j });
+        if (r === 0) {
+          roundMatches.push({ home: i, away: j });
         } else {
-          putaranMatches.push({ home: j, away: i });
+          roundMatches.push({ home: j, away: i });
         }
       }
     }
-
-    // ACAK urutan pertandingan dalam putaran ini
-    for (let i = putaranMatches.length - 1; i > 0; i--) {
+    // Shuffle
+    for (let i = roundMatches.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [putaranMatches[i], putaranMatches[j]] = [
-        putaranMatches[j],
-        putaranMatches[i],
-      ];
+      [roundMatches[i], roundMatches[j]] = [roundMatches[j], roundMatches[i]];
     }
-
-    matches.push(putaranMatches);
+    matches.push(roundMatches);
   }
 
-  // Debug: cek jadwal hasil acakan
-  console.log("=== JADWAL SETELAH DIACAK ===");
-  for (let p = 0; p < matches.length; p++) {
-    console.log(`Putaran ${p + 1}:`);
-    for (let m of matches[p]) {
-      console.log(`  ${teams[m.home].name} vs ${teams[m.away].name}`);
-    }
+  groupMatches[groupName] = matches;
+  groupCurrentRound[groupName] = 0;
+  groupCurrentMatch[groupName] = 0;
+  groupPreviousRank[groupName] = {};
+  groupHistory[groupName] = [];
+  groupTeamStats[groupName] = {};
+  groupMatchResults[groupName] = [];
 
-    let countPerTim = Array(teams.length).fill(0);
-    for (let m of matches[p]) {
-      countPerTim[m.home]++;
-      countPerTim[m.away]++;
-    }
-    console.log(`  Jumlah main per tim: ${countPerTim}`);
-  }
+  // Initialize stats for each team
+  const teamNames = groupTeams[groupName] || [];
+  teamNames.forEach((name) => {
+    groupTeamStats[groupName][name] = {
+      played: 0,
+      win: 0,
+      draw: 0,
+      loss: 0,
+      gf: 0,
+      ga: 0,
+      points: 0,
+    };
+  });
+
+  return true;
 }
 
-function updateStandings() {
-  const tbody = document.querySelector("#standingsTable tbody");
-  if (!tbody) return;
+function generateCurrentGroup() {
+  const name = getCurrentGroupName();
+  if (!name) {
+    showToast("⚠️ Tidak ada grup yang dipilih!", "warning");
+    return;
+  }
 
-  tbody.innerHTML = "";
+  const teams = groupTeams[name] || [];
+  if (teams.length < 2) {
+    showToast("⚠️ Minimal 2 tim di grup ini!", "error");
+    return;
+  }
 
-  const sortedTeams = [...teams];
-
-  sortedTeams.sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-
-    const gdA = a.gf - a.ga;
-    const gdB = b.gf - b.ga;
-
-    if (gdB !== gdA) return gdB - gdA;
-
-    return b.gf - a.gf;
-  });
-
-  sortedTeams.forEach((team, index) => {
-    let color = "white";
-    let arrow = "";
-
-    const prev = previousRank[team.name];
-
-    if (prev !== undefined) {
-      if (index < prev) {
-        color = "#22c55e";
-        arrow = " ↑";
-      } else if (index > prev) {
-        color = "#ef4444";
-        arrow = " ↓";
-      }
-    }
-
-    const row = `
-      <tr style="color: ${color}">
-        <td>${index + 1}${arrow}</td>
-        <td>${team.name}</td>
-        <td>${team.played}</td>
-        <td>${team.win}</td>
-        <td>${team.draw}</td>
-        <td>${team.loss}</td>
-        <td>${team.gf}</td>
-        <td>${team.ga}</td>
-        <td>${team.points}</td>
-      </tr>
-    `;
-
-    tbody.innerHTML += row;
-
-    previousRank[team.name] = index;
-  });
-
-  // Simpan setiap kali standings diupdate
+  generateMatchesForGroup(name);
+  updateAll();
   saveData();
+  showToast(`🚀 Liga grup "${name}" berhasil digenerate!`, "success");
 }
 
-function showMatch() {
-  const area = document.getElementById("matchArea");
-  if (!area) return;
+function generateAllGroups() {
+  if (groups.length === 0) {
+    showToast("⚠️ Tambahkan grup terlebih dahulu!", "warning");
+    return;
+  }
+
+  let successCount = 0;
+  groups.forEach((name) => {
+    const teams = groupTeams[name] || [];
+    if (teams.length >= 2) {
+      generateMatchesForGroup(name);
+      successCount++;
+    }
+  });
+
+  if (successCount === 0) {
+    showToast("⚠️ Tidak ada grup dengan minimal 2 tim!", "error");
+    return;
+  }
+
+  updateAll();
+  saveData();
+  showToast(`🚀 ${successCount} grup berhasil digenerate!`, "success");
+}
+
+// ============================================
+// SUBMIT SCORE - FIXED!
+// ============================================
+function submitScore() {
+  console.log("submitScore dipanggil!");
+
+  const groupName = getCurrentGroupName();
+  if (!groupName) {
+    showToast("⚠️ Pilih grup terlebih dahulu!", "warning");
+    return;
+  }
+
+  const scoreA = parseInt(document.getElementById("scoreA")?.value);
+  const scoreB = parseInt(document.getElementById("scoreB")?.value);
+
+  console.log("Skor:", scoreA, scoreB);
+
+  if (isNaN(scoreA) || isNaN(scoreB)) {
+    showToast("⚠️ Isi skor dulu!", "warning");
+    return;
+  }
+
+  if (scoreA < 0 || scoreB < 0) {
+    showToast("⚠️ Skor tidak boleh negatif!", "error");
+    return;
+  }
+
+  // Cek apakah ada match yang sedang berlangsung
+  const matches = groupMatches[groupName] || [];
+  const currentRound = groupCurrentRound[groupName] || 0;
+  const currentMatch = groupCurrentMatch[groupName] || 0;
+
+  if (matches.length === 0) {
+    showToast("⚠️ Belum ada jadwal! Generate liga dulu!", "warning");
+    return;
+  }
 
   if (currentRound >= matches.length) {
-    area.innerHTML = `
-      <div style="text-align: center; padding: 40px;">
-        <h3>🏆 Liga Selesai! 🏆</h3>
-        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
-          <button onclick="resetLeague()" style="width: auto; padding: 10px 30px; background: #3b82f6;">
-            🔄 Buat Liga Baru
-          </button>
-          <button onclick="undoLastMatch()" style="width: auto; padding: 10px 30px; background: #f59e0b;">
-            ↩️ Undo
-          </button>
-        </div>
-      </div>
-    `;
+    showToast("🏆 Liga sudah selesai!", "info");
     return;
   }
 
   const round = matches[currentRound];
-
   if (currentMatch >= round.length) {
-    currentRound++;
-    currentMatch = 0;
-    showMatch();
+    groupCurrentMatch[groupName] = 0;
+    groupCurrentRound[groupName] = currentRound + 1;
+    saveData();
+    updateAll();
+    showToast("🔄 Lanjut ke putaran berikutnya!", "info");
+    return;
+  }
+
+  // Save to history
+  saveToHistory(groupName);
+
+  const match = round[currentMatch];
+  const teamNames = groupTeams[groupName] || [];
+  const teamA = teamNames[match.home];
+  const teamB = teamNames[match.away];
+
+  console.log("Match:", teamA, "vs", teamB);
+
+  // Get stats
+  if (!groupTeamStats[groupName]) {
+    groupTeamStats[groupName] = {};
+    teamNames.forEach((name) => {
+      groupTeamStats[groupName][name] = {
+        played: 0,
+        win: 0,
+        draw: 0,
+        loss: 0,
+        gf: 0,
+        ga: 0,
+        points: 0,
+      };
+    });
+  }
+
+  const stats = groupTeamStats[groupName];
+  if (!stats[teamA]) {
+    stats[teamA] = {
+      played: 0,
+      win: 0,
+      draw: 0,
+      loss: 0,
+      gf: 0,
+      ga: 0,
+      points: 0,
+    };
+  }
+  if (!stats[teamB]) {
+    stats[teamB] = {
+      played: 0,
+      win: 0,
+      draw: 0,
+      loss: 0,
+      gf: 0,
+      ga: 0,
+      points: 0,
+    };
+  }
+
+  const statA = stats[teamA];
+  const statB = stats[teamB];
+
+  // Update stats
+  statA.played++;
+  statB.played++;
+  statA.gf += scoreA;
+  statA.ga += scoreB;
+  statB.gf += scoreB;
+  statB.ga += scoreA;
+
+  if (scoreA > scoreB) {
+    statA.win++;
+    statB.loss++;
+    statA.points += 3;
+  } else if (scoreA < scoreB) {
+    statB.win++;
+    statA.loss++;
+    statB.points += 3;
+  } else {
+    statA.draw++;
+    statB.draw++;
+    statA.points += 1;
+    statB.points += 1;
+  }
+
+  // Save match result
+  if (!groupMatchResults[groupName]) {
+    groupMatchResults[groupName] = [];
+  }
+  groupMatchResults[groupName].push({
+    round: currentRound,
+    matchIndex: currentMatch,
+    home: teamA,
+    away: teamB,
+    scoreA: scoreA,
+    scoreB: scoreB,
+  });
+
+  // Move to next match
+  groupCurrentMatch[groupName] = currentMatch + 1;
+
+  // Update previous rank
+  updatePreviousRank(groupName);
+
+  updateAll();
+  saveData();
+  showToast(`✅ ${teamA} ${scoreA} - ${scoreB} ${teamB}`, "success");
+}
+
+function updatePreviousRank(groupName) {
+  const teamNames = groupTeams[groupName] || [];
+  const stats = groupTeamStats[groupName] || {};
+
+  const sorted = [...teamNames];
+  sorted.sort((a, b) => {
+    const sa = stats[a] || { points: 0, gf: 0, ga: 0 };
+    const sb = stats[b] || { points: 0, gf: 0, ga: 0 };
+    if (sb.points !== sa.points) return sb.points - sa.points;
+    const gdA = sa.gf - sa.ga;
+    const gdB = sb.gf - sb.ga;
+    if (gdB !== gdA) return gdB - gdA;
+    return sb.gf - sa.gf;
+  });
+
+  groupPreviousRank[groupName] = {};
+  sorted.forEach((name, index) => {
+    groupPreviousRank[groupName][name] = index;
+  });
+}
+
+// ============================================
+// QUICK DRAW
+// ============================================
+function quickDraw() {
+  console.log("quickDraw dipanggil!");
+  const scoreA = document.getElementById("scoreA");
+  const scoreB = document.getElementById("scoreB");
+  if (scoreA) scoreA.value = 0;
+  if (scoreB) scoreB.value = 0;
+  submitScore();
+}
+
+// ============================================
+// UNDO
+// ============================================
+function saveToHistory(groupName) {
+  if (!groupHistory[groupName]) groupHistory[groupName] = [];
+
+  const snapshot = {
+    teams: JSON.parse(JSON.stringify(groupTeamStats[groupName] || {})),
+    currentRound: groupCurrentRound[groupName] || 0,
+    currentMatch: groupCurrentMatch[groupName] || 0,
+    previousRank: JSON.parse(
+      JSON.stringify(groupPreviousRank[groupName] || {}),
+    ),
+    matchResults: JSON.parse(
+      JSON.stringify(groupMatchResults[groupName] || []),
+    ),
+  };
+
+  groupHistory[groupName].push(snapshot);
+  if (groupHistory[groupName].length > 50) groupHistory[groupName].shift();
+  updateHistoryUI();
+}
+
+function undoLastMatch() {
+  const groupName = getCurrentGroupName();
+  if (!groupName) {
+    showToast("⚠️ Pilih grup terlebih dahulu!", "warning");
+    return;
+  }
+
+  const history = groupHistory[groupName] || [];
+  if (history.length === 0) {
+    showToast("Tidak ada yang bisa di-undo!", "warning");
+    return;
+  }
+
+  const lastState = history.pop();
+
+  // Restore stats
+  if (groupTeamStats && groupTeamStats[groupName]) {
+    groupTeamStats[groupName] = lastState.teams;
+  }
+  groupCurrentRound[groupName] = lastState.currentRound;
+  groupCurrentMatch[groupName] = lastState.currentMatch;
+  groupPreviousRank[groupName] = lastState.previousRank;
+  groupMatchResults[groupName] = lastState.matchResults;
+
+  updateAll();
+  saveData();
+  showToast("✅ Undo berhasil!", "success");
+}
+
+// ============================================
+// RESET
+// ============================================
+function resetAll() {
+  if (confirm("⚠️ Yakin ingin mereset semua data? Semua grup akan hilang!")) {
+    clearAllData();
+    showToast("🗑️ Semua data direset!", "info");
+  }
+}
+
+// ============================================
+// EXPORT
+// ============================================
+function exportStandings() {
+  const groupName = getCurrentGroupName();
+  if (
+    !groupName ||
+    !groupTeams[groupName] ||
+    groupTeams[groupName].length === 0
+  ) {
+    showToast("⚠️ Tidak ada data untuk diexport!", "warning");
+    return;
+  }
+
+  const teamNames = groupTeams[groupName] || [];
+  const stats = groupTeamStats[groupName] || {};
+  const teams = teamNames.map((name) => ({
+    name,
+    ...(stats[name] || {
+      played: 0,
+      win: 0,
+      draw: 0,
+      loss: 0,
+      gf: 0,
+      ga: 0,
+      points: 0,
+    }),
+  }));
+
+  const sorted = [...teams].sort((a, b) => b.points - a.points);
+  let text = `⚽ KLASEMEN - ${groupName}\n`;
+  text += "=".repeat(50) + "\n\n";
+  text += "# | Tim | M | W | D | L | GF | GA | SG | Pts\n";
+  text += "-".repeat(50) + "\n";
+
+  sorted.forEach((t, i) => {
+    const gd = t.gf - t.ga;
+    text += `${i + 1} | ${t.name.padEnd(15)} | ${t.played} | ${t.win} | ${t.draw} | ${t.loss} | ${t.gf} | ${t.ga} | ${gd > 0 ? "+" : ""}${gd} | ${t.points}\n`;
+  });
+
+  text += "\n" + "=".repeat(50) + "\n";
+  text += `Total Gol: ${teams.reduce((s, t) => s + t.gf, 0)}\n`;
+
+  const blob = new Blob([text], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `klasemen_${groupName}_${new Date().toISOString().slice(0, 10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  showToast(`📥 Klasemen "${groupName}" berhasil diexport!`, "success");
+}
+
+function toggleSortMode() {
+  const modes = ["points", "goalDiff", "goalsFor"];
+  const labels = ["Poin", "Selisih Gol", "Gol Masuk"];
+  const currentIdx = modes.indexOf(sortMode);
+  const nextIdx = (currentIdx + 1) % modes.length;
+  sortMode = modes[nextIdx];
+  updateStandings();
+  showToast(`🔄 Sortir: ${labels[nextIdx]}`, "info");
+}
+
+// ============================================
+// UPDATE UI
+// ============================================
+function updateAll() {
+  updateGroupTabs();
+  updateGroupTeamsInput();
+  updateStandings();
+  updateMatch();
+  updateFixture();
+  updateStats();
+  updateTeamCount();
+  updateGroupCount();
+  updateHistoryUI();
+  updateUndoBtn();
+}
+
+function updateGroupTabs() {
+  if (!groupTabs) return;
+
+  if (groups.length === 0) {
+    groupTabs.innerHTML =
+      '<span class="text-muted" style="padding:8px 0;">Belum ada grup</span>';
+    return;
+  }
+
+  let html = "";
+  groups.forEach((name, index) => {
+    const isActive = index === currentGroupIndex;
+    const teamCount = groupTeams[name]?.length || 0;
+    html += `
+      <div class="group-tab ${isActive ? "active" : ""}" onclick="switchGroup(${index})">
+        <span>${name}</span>
+        <span class="tab-badge">${teamCount} tim</span>
+        <button class="tab-delete" onclick="event.stopPropagation(); deleteGroup(${index})">✕</button>
+      </div>
+    `;
+  });
+  groupTabs.innerHTML = html;
+}
+
+function updateGroupTeamsInput() {
+  const name = getCurrentGroupName();
+  if (!name) {
+    teamsInput.value = "";
+    if (currentGroupLabel)
+      currentGroupLabel.textContent = "📋 Pilih grup terlebih dahulu";
+    if (groupTeamCount) groupTeamCount.textContent = "0 tim";
+    return;
+  }
+
+  const teams = groupTeams[name] || [];
+  teamsInput.value = teams.join("\n");
+  if (currentGroupLabel) currentGroupLabel.textContent = `📋 Tim di "${name}"`;
+  if (groupTeamCount) groupTeamCount.textContent = `${teams.length} tim`;
+}
+
+function updateStandings() {
+  if (!standingsBody) return;
+  standingsBody.innerHTML = "";
+
+  const groupName = getCurrentGroupName();
+  if (!groupName) {
+    document.getElementById("standingInfo").textContent =
+      "Pilih grup terlebih dahulu";
+    return;
+  }
+
+  const teamNames = groupTeams[groupName] || [];
+  if (teamNames.length === 0) {
+    document.getElementById("standingInfo").textContent =
+      "Belum ada tim di grup ini";
+    return;
+  }
+
+  const stats = groupTeamStats[groupName] || {};
+  const teams = teamNames.map((name) => ({
+    name,
+    ...(stats[name] || {
+      played: 0,
+      win: 0,
+      draw: 0,
+      loss: 0,
+      gf: 0,
+      ga: 0,
+      points: 0,
+    }),
+  }));
+
+  const sorted = [...teams];
+  sorted.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    const gdA = a.gf - a.ga;
+    const gdB = b.gf - b.ga;
+    if (gdB !== gdA) return gdB - gdA;
+    return b.gf - a.gf;
+  });
+
+  const prevRank = groupPreviousRank[groupName] || {};
+
+  sorted.forEach((team, index) => {
+    const prev = prevRank[team.name];
+    let arrow = "";
+    let color = "";
+
+    if (prev !== undefined && prev !== index) {
+      if (index < prev) {
+        arrow = " ↑";
+        color = "#10b981";
+      } else {
+        arrow = " ↓";
+        color = "#ef4444";
+      }
+    }
+
+    const gd = team.gf - team.ga;
+    const row = document.createElement("tr");
+    row.style.color = color || "inherit";
+    row.innerHTML = `
+      <td>${index + 1}${arrow}</td>
+      <td><strong>${team.name}</strong></td>
+      <td>${team.played}</td>
+      <td>${team.win}</td>
+      <td>${team.draw}</td>
+      <td>${team.loss}</td>
+      <td>${team.gf}</td>
+      <td>${team.ga}</td>
+      <td>${gd > 0 ? "+" : ""}${gd}</td>
+      <td><strong>${team.points}</strong></td>
+    `;
+    standingsBody.appendChild(row);
+  });
+
+  const totalMatchesPlayed = teams.reduce((sum, t) => sum + t.played, 0) / 2;
+  document.getElementById("standingInfo").textContent =
+    `${teamNames.length} tim | ${totalMatchesPlayed} pertandingan dimainkan`;
+}
+
+function updateMatch() {
+  if (!matchArea) return;
+
+  const groupName = getCurrentGroupName();
+  if (
+    !groupName ||
+    !groupTeams[groupName] ||
+    groupTeams[groupName].length === 0
+  ) {
+    matchArea.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">⚽</span>
+        <h3>Belum ada pertandingan</h3>
+        <p>Pilih grup dan generate liga terlebih dahulu</p>
+      </div>
+    `;
+    return;
+  }
+
+  const matches = groupMatches[groupName] || [];
+  if (matches.length === 0) {
+    matchArea.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">⚽</span>
+        <h3>Belum ada jadwal</h3>
+        <p>Klik "Generate Liga" untuk membuat jadwal</p>
+      </div>
+    `;
+    return;
+  }
+
+  const currentRound = groupCurrentRound[groupName] || 0;
+  const currentMatch = groupCurrentMatch[groupName] || 0;
+
+  if (currentRound >= matches.length) {
+    const teamNames = groupTeams[groupName] || [];
+    const stats = groupTeamStats[groupName] || {};
+    let topTeam = teamNames[0] || "";
+    let topPoints = -1;
+
+    teamNames.forEach((name) => {
+      const s = stats[name] || { points: 0 };
+      if (s.points > topPoints) {
+        topPoints = s.points;
+        topTeam = name;
+      }
+    });
+
+    matchArea.innerHTML = `
+      <div class="match-finished">
+        <span class="trophy">🏆</span>
+        <h3>Liga Selesai!</h3>
+        <p style="color: var(--text-secondary);">
+          Juara: <strong style="color: #f59e0b;">${topTeam}</strong> dengan ${topPoints} poin
+        </p>
+        <div class="match-actions" style="margin-top:16px;">
+          <button onclick="generateCurrentGroup()" class="btn-primary">🔄 Generate Ulang</button>
+          <button onclick="undoLastMatch()" class="btn-warning">↩️ Undo</button>
+        </div>
+      </div>
+    `;
+    if (matchProgress) matchProgress.textContent = "100%";
+    return;
+  }
+
+  const round = matches[currentRound];
+  if (currentMatch >= round.length) {
+    groupCurrentRound[groupName] = currentRound + 1;
+    groupCurrentMatch[groupName] = 0;
+    saveData();
+    updateMatch();
     return;
   }
 
   const match = round[currentMatch];
-  const teamA = teams[match.home];
-  const teamB = teams[match.away];
+  const teamNames = groupTeams[groupName] || [];
+  const teamA = teamNames[match.home];
+  const teamB = teamNames[match.away];
+  const totalRounds = matches.length;
+  const totalMatchesCount = matches.flat().length;
 
-  area.innerHTML = `
-    <div style="text-align: center;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <button onclick="undoLastMatch()" style="width: auto; padding: 8px 16px; background: #f59e0b; margin: 0;">
-          ↩️ Undo
-        </button>
-        <h3 style="margin: 0;">🎯 Putaran ${currentRound + 1} - Pertandingan ${currentMatch + 1} dari ${round.length}</h3>
-        <div style="width: 80px;"></div>
+  let done = 0;
+  for (let r = 0; r < matches.length; r++) {
+    if (r < currentRound) {
+      done += matches[r].length;
+    } else if (r === currentRound) {
+      done += currentMatch;
+      break;
+    }
+  }
+
+  const progress =
+    totalMatchesCount > 0 ? Math.round((done / totalMatchesCount) * 100) : 0;
+
+  matchArea.innerHTML = `
+    <div style="width:100%;">
+      <div class="match-header">
+        <span class="match-round">🎯 Putaran ${currentRound + 1}/${totalRounds}</span>
+        <span class="match-round">Match ${currentMatch + 1}/${round.length}</span>
       </div>
-      <h4 style="font-size: 24px; margin: 20px 0;">⚽ ${teamA.name} vs ${teamB.name} ⚽</h4>
+      <div class="match-teams">
+        ${teamA} <span class="vs">vs</span> ${teamB}
+      </div>
       <div class="match-inputs">
-        <input type="number" id="scoreA" placeholder="0" value="0" min="0">
-        <span>vs</span>
-        <input type="number" id="scoreB" placeholder="0" value="0" min="0">
+        <input type="number" id="scoreA" value="0" min="0" max="99">
+        <span class="vs-text">⚽</span>
+        <input type="number" id="scoreB" value="0" min="0" max="99">
       </div>
-      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-        <button onclick="submitScore()" style="width: auto; padding: 10px 30px; background: #22c55e;">
-          ✅ Submit Skor
-        </button>
-        <button onclick="quickDraw()" style="width: auto; padding: 10px 30px; background: #3b82f6;">
-          🤝 Draw (0-0)
-        </button>
+      <div class="match-actions">
+        <button onclick="submitScore()" class="btn-success">✅ Submit</button>
+        <button onclick="quickDraw()" class="btn-primary">🤝 Draw 0-0</button>
+      </div>
+      <div style="text-align:center;margin-top:8px;">
+        <span class="text-muted">Progress: ${progress}%</span>
       </div>
     </div>
   `;
+
+  if (matchProgress) matchProgress.textContent = `${progress}%`;
 }
 
-// Fitur quick draw untuk memudahkan testing
-function quickDraw() {
-  document.getElementById("scoreA").value = 0;
-  document.getElementById("scoreB").value = 0;
-  submitScore();
-}
+function updateFixture() {
+  if (!fixtureArea) return;
 
-function submitScore() {
-  const scoreA = parseInt(document.getElementById("scoreA").value);
-  const scoreB = parseInt(document.getElementById("scoreB").value);
-
-  if (isNaN(scoreA) || isNaN(scoreB)) {
-    alert("Isi skor dulu!");
+  const groupName = getCurrentGroupName();
+  if (
+    !groupName ||
+    !groupTeams[groupName] ||
+    groupTeams[groupName].length === 0
+  ) {
+    fixtureArea.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📅</span>
+        <h3>Belum ada jadwal</h3>
+        <p>Generate liga untuk melihat jadwal</p>
+      </div>
+    `;
+    if (fixtureCount) fixtureCount.textContent = "0 match";
     return;
   }
 
-  // SIMPAN KE HISTORY SEBELUM MERUBAH DATA
-  saveToHistory();
-
-  const match = matches[currentRound][currentMatch];
-  const teamA = teams[match.home];
-  const teamB = teams[match.away];
-
-  teamA.played++;
-  teamB.played++;
-
-  teamA.gf += scoreA;
-  teamA.ga += scoreB;
-
-  teamB.gf += scoreB;
-  teamB.ga += scoreA;
-
-  if (scoreA > scoreB) {
-    teamA.win++;
-    teamB.loss++;
-    teamA.points += 3;
-  } else if (scoreA < scoreB) {
-    teamB.win++;
-    teamA.loss++;
-    teamB.points += 3;
-  } else {
-    teamA.draw++;
-    teamB.draw++;
-    teamA.points += 1;
-    teamB.points += 1;
+  const matches = groupMatches[groupName] || [];
+  if (matches.length === 0) {
+    fixtureArea.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📅</span>
+        <h3>Belum ada jadwal</h3>
+        <p>Generate liga terlebih dahulu</p>
+      </div>
+    `;
+    if (fixtureCount) fixtureCount.textContent = "0 match";
+    return;
   }
 
-  currentMatch++;
+  const teamNames = groupTeams[groupName] || [];
+  const currentRound = groupCurrentRound[groupName] || 0;
+  const currentMatch = groupCurrentMatch[groupName] || 0;
+  const results = groupMatchResults[groupName] || [];
 
-  updateStandings();
-  showMatch();
+  let html = '<div class="fixture-list">';
+  let playedCount = 0;
+  let totalCount = 0;
 
-  // Simpan setelah submit score
-  saveData();
+  matches.forEach((round, roundIdx) => {
+    const isPastRound = roundIdx < currentRound;
+    const isCurrentRound = roundIdx === currentRound;
+
+    html += `<div class="fixture-round">`;
+    html += `<div class="fixture-round-title">
+      <span>${isPastRound ? "✅" : isCurrentRound ? "▶️" : "📅"} Putaran ${roundIdx + 1}</span>
+      <span>${round.length} match</span>
+    </div>`;
+
+    round.forEach((match, matchIdx) => {
+      const teamA = teamNames[match.home];
+      const teamB = teamNames[match.away];
+      const isPlayed =
+        roundIdx < currentRound ||
+        (roundIdx === currentRound && matchIdx < currentMatch);
+      const isCurrent = roundIdx === currentRound && matchIdx === currentMatch;
+
+      let statusClass = "upcoming";
+      let statusText = "Akan datang";
+      let scoreText = "vs";
+      let scoreClass = "upcoming";
+
+      const result = results.find(
+        (r) => r.round === roundIdx && r.matchIndex === matchIdx,
+      );
+
+      if (isPlayed || result) {
+        statusClass = "played";
+        statusText = "Selesai";
+        if (result) {
+          scoreText = `${result.scoreA} - ${result.scoreB}`;
+          scoreClass = "played";
+        } else {
+          scoreText = "? - ?";
+        }
+        playedCount++;
+      } else if (isCurrent) {
+        statusClass = "current";
+        statusText = "Sedang berlangsung";
+        scoreText = "vs";
+        scoreClass = "upcoming";
+      }
+
+      totalCount++;
+
+      const itemClass = isPlayed
+        ? "fixture-item played"
+        : isCurrent
+          ? "fixture-item current"
+          : "fixture-item upcoming";
+
+      html += `
+        <div class="${itemClass}">
+          <div class="fixture-teams">
+            <span>${teamA}</span>
+            <span class="vs">vs</span>
+            <span>${teamB}</span>
+            <span class="fixture-status ${statusClass}">${statusText}</span>
+          </div>
+          <div class="fixture-score ${scoreClass}">${scoreText}</div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+  });
+
+  html += "</div>";
+  fixtureArea.innerHTML = html;
+
+  if (fixtureCount) {
+    fixtureCount.textContent = `${playedCount}/${totalCount} selesai`;
+  }
 }
 
-// Fungsi untuk reset liga (opsional)
-function resetLeague() {
-  if (confirm("Yakin ingin mereset liga? Semua data akan hilang!")) {
-    clearData();
-    location.reload(); // Reload halaman untuk reset total
+function updateStats() {
+  const groupName = getCurrentGroupName();
+  if (
+    !groupName ||
+    !groupTeams[groupName] ||
+    groupTeams[groupName].length === 0
+  ) {
+    statsGrid.style.display = "none";
+    return;
+  }
+
+  statsGrid.style.display = "grid";
+
+  const teamNames = groupTeams[groupName] || [];
+  const stats = groupTeamStats[groupName] || {};
+
+  let totalM = 0;
+  let totalG = 0;
+  let topTeam = "-";
+  let topGoals = 0;
+
+  teamNames.forEach((name) => {
+    const s = stats[name] || { played: 0, gf: 0 };
+    totalM += s.played || 0;
+    totalG += s.gf || 0;
+    if ((s.gf || 0) > topGoals) {
+      topGoals = s.gf || 0;
+      topTeam = name;
+    }
+  });
+
+  totalM = totalM / 2;
+
+  if (totalMatches) totalMatches.textContent = totalM;
+  if (totalGoals) totalGoals.textContent = totalG;
+  if (avgGoals)
+    avgGoals.textContent = totalM > 0 ? (totalG / totalM).toFixed(1) : "0.0";
+  if (topScorer)
+    topScorer.textContent = topGoals > 0 ? `${topTeam} (${topGoals})` : "-";
+}
+
+function updateTeamCount() {
+  if (teamCount) {
+    const count = teamsInput.value.split("\n").filter((t) => t.trim()).length;
+    teamCount.textContent = count > 0 ? `${count} tim` : "0 tim";
   }
 }
 
-// Fungsi untuk menampilkan info data tersimpan
-function showSaveInfo() {
-  const savedData = localStorage.getItem("leagueData");
-  if (savedData) {
-    const data = JSON.parse(savedData);
-    console.log(
-      `Data tersimpan: ${data.teams.length} tim, ${data.matches.length} putaran`,
-    );
-    console.log(
-      `Progress: Round ${data.currentRound + 1}, Match ${data.currentMatch + 1}`,
-    );
-    console.log(`History tersedia: ${data.historyStack?.length || 0} langkah`);
-  } else {
-    console.log("Belum ada data tersimpan");
+function updateGroupCount() {
+  if (groupCount) {
+    groupCount.textContent = `${groups.length} grup`;
   }
 }
 
-// Auto-save setiap 30 detik (opsional)
-setInterval(() => {
-  if (teams.length > 0 && matches.length > 0) {
-    saveData();
-    console.log("Auto-save berjalan...");
+function updateHistoryUI() {
+  const groupName = getCurrentGroupName();
+  if (historyCount) {
+    const count = groupName ? groupHistory[groupName]?.length || 0 : 0;
+    historyCount.textContent = `History: ${count} langkah`;
   }
-}, 30000);
+}
 
-// Keyboard shortcut untuk Undo (Ctrl+Z)
+function updateUndoBtn() {
+  const groupName = getCurrentGroupName();
+  if (undoBtn) {
+    const count = groupName ? groupHistory[groupName]?.length || 0 : 0;
+    undoBtn.disabled = count === 0;
+    undoBtn.style.opacity = count === 0 ? "0.5" : "1";
+  }
+}
+
+// ============================================
+// HELP / MODAL
+// ============================================
+function showHelp() {
+  document.getElementById("helpModal").classList.add("active");
+}
+
+function closeHelp() {
+  document.getElementById("helpModal").classList.remove("active");
+}
+
+document.addEventListener("click", (e) => {
+  const modal = document.getElementById("helpModal");
+  if (e.target === modal) closeHelp();
+});
+
+// ============================================
+// TOAST
+// ============================================
+function showToast(message, type = "info") {
+  const toast = document.createElement("div");
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${type === "success" ? "#10b981" : type === "error" ? "#ef4444" : type === "warning" ? "#f59e0b" : "#38bdf8"};
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 9999;
+    max-width: 90%;
+    text-align: center;
+    animation: fadeInUp 0.3s ease-out;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+  });
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
+
+// ============================================
+// KEYBOARD SHORTCUTS
+// ============================================
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "z") {
     e.preventDefault();
     undoLastMatch();
   }
+  if (e.key === "Escape") {
+    closeHelp();
+  }
+  if (e.key === "Enter" && document.activeElement?.tagName !== "TEXTAREA") {
+    const submitBtn = document.querySelector('button[onclick*="submitScore"]');
+    if (submitBtn) submitBtn.click();
+  }
 });
 
-// Inisialisasi saat halaman dimuat
+// ============================================
+// AUTO SAVE
+// ============================================
+setInterval(() => {
+  if (groups.length > 0) {
+    saveData();
+  }
+}, 30000);
+
+// ============================================
+// INIT
+// ============================================
 document.addEventListener("DOMContentLoaded", () => {
-  // Coba load data yang tersimpan
+  teamsInput.addEventListener("input", updateTeamCount);
+
   const hasData = loadData();
-
-  if (!hasData) {
-    // Jika tidak ada data, tampilkan form kosong
-    document.getElementById("matchArea").innerHTML = `
-      <div style="text-align: center; padding: 40px;">
-        <p style="color: #94a3b8;">Belum ada liga yang berjalan</p>
-        <p style="color: #22c55e; margin-top: 10px;">Silahkan generate liga baru di atas ⬆️</p>
-      </div>
-    `;
-  }
-
-  // Tambahkan tombol reset di UI (opsional)
-  const container = document.querySelector(".container");
-  if (container && !document.getElementById("resetBtn")) {
-    const resetBtn = document.createElement("button");
-    resetBtn.id = "resetBtn";
-    resetBtn.textContent = "🗑️ Reset Semua Data";
-    resetBtn.style.background = "#ef4444";
-    resetBtn.style.marginTop = "10px";
-    resetBtn.onclick = resetLeague;
-
-    // Tambahkan di bawah tombol generate
-    const generateBtn = document.querySelector("#generateBtn");
-    if (generateBtn) {
-      generateBtn.parentNode.appendChild(resetBtn);
-    }
+  if (hasData && groups.length > 0) {
+    updateAll();
+    showToast("💾 Data dimuat dari penyimpanan", "info");
+  } else {
+    // Create default groups with example
+    groups = ["Grup A", "Grup B"];
+    groupTeams["Grup A"] = ["Persija", "Persib", "Arema"];
+    groupTeams["Grup B"] = ["Bali United", "PSIS", "Borneo"];
+    groupMatches["Grup A"] = [];
+    groupMatches["Grup B"] = [];
+    groupCurrentRound["Grup A"] = 0;
+    groupCurrentRound["Grup B"] = 0;
+    groupCurrentMatch["Grup A"] = 0;
+    groupCurrentMatch["Grup B"] = 0;
+    groupPreviousRank["Grup A"] = {};
+    groupPreviousRank["Grup B"] = {};
+    groupHistory["Grup A"] = [];
+    groupHistory["Grup B"] = [];
+    groupTeamStats["Grup A"] = {};
+    groupTeamStats["Grup B"] = {};
+    groupMatchResults["Grup A"] = [];
+    groupMatchResults["Grup B"] = [];
+    currentGroupIndex = 0;
+    updateAll();
+    saveData();
+    showToast("📋 Contoh grup & tim sudah dibuat!", "info");
   }
 });
-
-// Tambahkan tombol generate di HTML jika belum ada
-window.onload = function () {
-  // Pastikan tombol generate ada
-  const generateBtn = document.querySelector(
-    "button[onclick='generateLeague()']",
-  );
-  if (generateBtn) {
-    generateBtn.id = "generateBtn";
-  }
-};
