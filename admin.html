@@ -13,6 +13,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
+    <!-- CONFIG -->
+    <script src="firebase-config.js"></script>
+
     <link rel="stylesheet" href="style.css" />
     <link
       rel="icon"
@@ -20,9 +23,7 @@
     />
   </head>
   <body>
-    <!-- ========================================== -->
-    <!-- 🔥 TAMBAHKAN INI DI SINI (BAGIAN ATAS BODY) -->
-    <!-- ========================================== -->
+    <!-- AUTH GUARD -->
     <div
       id="authGuard"
       style="
@@ -62,20 +63,15 @@
       </button>
     </div>
 
-    <!-- ========================================== -->
-    <!-- KONTEN ADMIN (AWALNYA DISEMBUNYIKAN)       -->
-    <!-- ========================================== -->
+    <!-- KONTEN ADMIN -->
     <div id="adminContent" style="display: none">
       <div class="container">
-        <!-- Header -->
         <header class="header">
           <h1>⚽ Admin Panel</h1>
           <p class="subtitle" id="adminInfo">Loading...</p>
         </header>
 
-        <!-- Main Content -->
         <main>
-          <!-- Actions Bar -->
           <div class="admin-actions">
             <button onclick="logout()" class="btn-danger">🚪 Logout</button>
             <button
@@ -92,7 +88,6 @@
             </button>
           </div>
 
-          <!-- Group Management -->
           <div class="card">
             <div class="card-header">
               <h2>📝 Kelola Grup</h2>
@@ -150,7 +145,6 @@
             </div>
           </div>
 
-          <!-- Stats -->
           <div class="stats-grid" id="statsGrid">
             <div class="stat-card">
               <span class="stat-icon">🏟️</span>
@@ -174,9 +168,7 @@
             </div>
           </div>
 
-          <!-- Main Grid -->
           <div class="grid grid-3">
-            <!-- Standings -->
             <div class="card card-standings">
               <div class="card-header">
                 <h2>📊 Klasemen</h2>
@@ -210,7 +202,6 @@
               </div>
             </div>
 
-            <!-- Match Area -->
             <div class="card card-match">
               <div class="card-header">
                 <h2>⚽ Pertandingan</h2>
@@ -225,7 +216,6 @@
               </div>
             </div>
 
-            <!-- Fixture -->
             <div class="card card-fixture">
               <div class="card-header">
                 <h2>📅 Jadwal</h2>
@@ -241,7 +231,6 @@
             </div>
           </div>
 
-          <!-- Reset -->
           <div class="card">
             <div class="actions-row">
               <button
@@ -269,10 +258,9 @@
       </div>
     </div>
 
-    <script src="firebase-config.js"></script>
     <script>
       // ==========================================
-      // AUTH GUARD - CEK SEBELUM ADMIN.JS DIJALANKAN
+      // AUTH GUARD
       // ==========================================
       document.addEventListener("DOMContentLoaded", function () {
         console.log("🔐 Auth guard running...");
@@ -280,25 +268,21 @@
         const authGuard = document.getElementById("authGuard");
         const adminContent = document.getElementById("adminContent");
 
-        // Cek status login
         auth.onAuthStateChanged(function (user) {
           console.log("👤 User:", user ? user.email : "Not logged in");
 
           if (!user) {
-            // Ga login → tampilkan authGuard
             authGuard.style.display = "flex";
             adminContent.style.display = "none";
             console.log("⛔ Not logged in, showing auth guard");
             return;
           }
 
-          // Cek apakah user adalah admin
           db.collection("users")
             .doc(user.uid)
             .get()
             .then(function (doc) {
               if (doc.exists && doc.data().role === "admin") {
-                // Admin → tampilkan konten
                 authGuard.style.display = "none";
                 adminContent.style.display = "block";
                 console.log("✅ Admin verified, loading admin panel");
@@ -306,9 +290,15 @@
                 // Load admin.js
                 var script = document.createElement("script");
                 script.src = "admin.js";
+                script.onload = function () {
+                  console.log("✅ admin.js loaded!");
+                  // Panggil init setelah admin.js load
+                  if (typeof initAdmin === "function") {
+                    initAdmin();
+                  }
+                };
                 document.body.appendChild(script);
               } else {
-                // Bukan admin → tampilkan authGuard
                 authGuard.style.display = "flex";
                 adminContent.style.display = "none";
                 console.log("⛔ Not admin, showing auth guard");

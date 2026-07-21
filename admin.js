@@ -1,6 +1,8 @@
 // ============================================
-// ADMIN.JS - ADMIN PANEL (FIXED)
+// ADMIN.JS - ADMIN PANEL (FIXED - FINAL)
 // ============================================
+
+console.log("📦 admin.js loaded!");
 
 // ============================================
 // STATE
@@ -38,44 +40,47 @@ const undoBtn = document.getElementById("undoBtn");
 const historyCount = document.getElementById("historyCount");
 const adminInfo = document.getElementById("adminInfo");
 
-console.log("✅ admin.js loaded!");
-
 // ============================================
-// AUTH CHECK
+// INIT ADMIN - DIPANGGIL DARI ADMIN.HTML
 // ============================================
-function checkAdminAuth() {
-  console.log("🔍 checkAdminAuth called");
+function initAdmin() {
+  console.log("🚀 initAdmin called!");
 
-  auth.onAuthStateChanged((user) => {
-    console.log("👤 Auth state changed:", user ? user.email : "Not logged in");
+  // Cek apakah sudah login dan admin
+  const user = auth.currentUser;
+  if (!user) {
+    console.log("⛔ No user, redirecting to index.html");
+    window.location.href = "index.html";
+    return;
+  }
 
-    if (!user) {
-      console.log("⛔ No user, redirecting to index.html");
-      window.location.href = "index.html";
-      return;
-    }
-
-    db.collection("users")
-      .doc(user.uid)
-      .get()
-      .then((doc) => {
-        console.log("📄 User doc:", doc.exists ? doc.data() : "Not found");
-        if (doc.exists && doc.data().role === "admin") {
-          adminInfo.textContent = `👋 ${user.email} (Admin)`;
-          console.log("✅ Admin verified!");
-          loadData();
-        } else {
-          adminInfo.textContent = "⛔ Akses ditolak! Bukan admin.";
-          console.log("⛔ Not admin!");
-          setTimeout(() => {
-            window.location.href = "index.html";
-          }, 2000);
-        }
-      })
-      .catch((err) => {
-        console.error("❌ Error cek admin:", err);
+  db.collection("users")
+    .doc(user.uid)
+    .get()
+    .then((doc) => {
+      if (doc.exists && doc.data().role === "admin") {
+        adminInfo.textContent = `👋 ${user.email} (Admin)`;
+        console.log("✅ Admin verified!");
+        loadData();
+        setupEventListeners();
+      } else {
+        console.log("⛔ Not admin!");
         window.location.href = "index.html";
-      });
+      }
+    })
+    .catch((err) => {
+      console.error("❌ Error checking admin:", err);
+      window.location.href = "index.html";
+    });
+}
+
+// ============================================
+// SETUP EVENT LISTENERS
+// ============================================
+function setupEventListeners() {
+  teamsInput.addEventListener("input", () => {
+    const count = teamsInput.value.split("\n").filter((t) => t.trim()).length;
+    if (groupTeamCount) groupTeamCount.textContent = `${count} tim`;
   });
 }
 
@@ -100,7 +105,9 @@ function logout() {
 function loadData() {
   console.log("📥 Loading data from Firebase...");
 
-  // Load groups
+  // Tampilkan loading
+  showToast("⏳ Memuat data...", "info");
+
   db.collection("groups")
     .doc("data")
     .get()
@@ -119,6 +126,8 @@ function loadData() {
         groupMatchResults = data.groupMatchResults || {};
         currentGroupIndex = data.currentGroupIndex || 0;
         console.log("✅ Data loaded:", groups.length, "groups");
+        console.log("📊 GroupTeams:", groupTeams);
+        console.log("📊 GroupTeamStats:", groupTeamStats);
       } else {
         console.log("📝 No data, initializing empty");
         groups = [];
@@ -147,6 +156,7 @@ function loadData() {
       groupMatchResults = {};
       currentGroupIndex = 0;
       updateAll();
+      showToast("⚠️ Gagal memuat data!", "error");
     });
 
   // Real-time listener
@@ -224,7 +234,7 @@ function addGroup() {
 
   groups.push(name);
   groupTeams[name] = [];
-  groupMatches[name] = [];
+  groupMatches[name] = {};
   groupCurrentRound[name] = 0;
   groupCurrentMatch[name] = 0;
   groupPreviousRank[name] = {};
@@ -294,7 +304,7 @@ function updateGroupTeams() {
   groupTeams[name] = teamNames.map((t) => t.trim());
 
   // Reset data grup
-  groupMatches[name] = [];
+  groupMatches[name] = {};
   groupCurrentRound[name] = 0;
   groupCurrentMatch[name] = 0;
   groupPreviousRank[name] = {};
@@ -423,7 +433,7 @@ function generateAllGroups() {
 }
 
 // ============================================
-// SUBMIT SCORE - FIXED FOR OBJECT STRUCTURE
+// SUBMIT SCORE
 // ============================================
 function submitScore() {
   console.log("📝 submitScore called");
@@ -446,7 +456,6 @@ function submitScore() {
     return;
   }
 
-  // 🔥 AMBIL MATCHES OBJEK
   const matchesObj = groupMatches[groupName] || {};
   const roundKeys = Object.keys(matchesObj).sort();
 
@@ -474,7 +483,6 @@ function submitScore() {
     return;
   }
 
-  // Save to history
   saveToHistory(groupName);
 
   const match = round[currentMatch];
@@ -482,7 +490,6 @@ function submitScore() {
   const teamA = teamNames[match.home];
   const teamB = teamNames[match.away];
 
-  // Inisialisasi stats kalo belum ada
   if (!groupTeamStats[groupName]) {
     groupTeamStats[groupName] = {};
     teamNames.forEach((name) => {
@@ -525,7 +532,6 @@ function submitScore() {
   const statA = stats[teamA];
   const statB = stats[teamB];
 
-  // Update statistik
   statA.played++;
   statB.played++;
   statA.gf += scoreA;
@@ -548,7 +554,6 @@ function submitScore() {
     statB.points += 1;
   }
 
-  // Simpan hasil match
   if (!groupMatchResults[groupName]) groupMatchResults[groupName] = [];
   groupMatchResults[groupName].push({
     round: currentRound,
@@ -559,7 +564,6 @@ function submitScore() {
     scoreB: scoreB,
   });
 
-  // Lanjut ke match berikutnya
   groupCurrentMatch[groupName] = currentMatch + 1;
   updatePreviousRank(groupName);
 
@@ -751,12 +755,12 @@ function updateGroupTabs() {
     const isActive = index === currentGroupIndex;
     const teamCount = groupTeams[name]?.length || 0;
     html += `
-                    <div class="group-tab ${isActive ? "active" : ""}" onclick="switchGroup(${index})">
-                        <span>${name}</span>
-                        <span class="tab-badge">${teamCount} tim</span>
-                        <button class="tab-delete" onclick="event.stopPropagation(); deleteGroup(${index})">✕</button>
-                    </div>
-                `;
+            <div class="group-tab ${isActive ? "active" : ""}" onclick="switchGroup(${index})">
+                <span>${name}</span>
+                <span class="tab-badge">${teamCount} tim</span>
+                <button class="tab-delete" onclick="event.stopPropagation(); deleteGroup(${index})">✕</button>
+            </div>
+        `;
   });
   groupTabs.innerHTML = html;
 }
@@ -839,17 +843,17 @@ function updateStandings() {
     const row = document.createElement("tr");
     row.style.color = color || "inherit";
     row.innerHTML = `
-                    <td>${index + 1}${arrow}</td>
-                    <td><strong>${team.name}</strong></td>
-                    <td>${team.played}</td>
-                    <td>${team.win}</td>
-                    <td>${team.draw}</td>
-                    <td>${team.loss}</td>
-                    <td>${team.gf}</td>
-                    <td>${team.ga}</td>
-                    <td>${gd > 0 ? "+" : ""}${gd}</td>
-                    <td><strong>${team.points}</strong></td>
-                `;
+            <td>${index + 1}${arrow}</td>
+            <td><strong>${team.name}</strong></td>
+            <td>${team.played}</td>
+            <td>${team.win}</td>
+            <td>${team.draw}</td>
+            <td>${team.loss}</td>
+            <td>${team.gf}</td>
+            <td>${team.ga}</td>
+            <td>${gd > 0 ? "+" : ""}${gd}</td>
+            <td><strong>${team.points}</strong></td>
+        `;
     standingsBody.appendChild(row);
   });
 
@@ -858,9 +862,6 @@ function updateStandings() {
     `${teamNames.length} tim | ${totalMatchesPlayed} pertandingan dimainkan`;
 }
 
-// ============================================
-// UPDATE MATCH - FIXED FOR OBJECT STRUCTURE
-// ============================================
 function updateMatch() {
   if (!matchArea) return;
 
@@ -880,7 +881,6 @@ function updateMatch() {
     return;
   }
 
-  // 🔥 AMBIL MATCHES OBJEK
   const matchesObj = groupMatches[groupName] || {};
   const roundKeys = Object.keys(matchesObj).sort();
 
@@ -945,7 +945,6 @@ function updateMatch() {
   const teamB = teamNames[match.away];
   const totalRounds = roundKeys.length;
 
-  // Hitung total matches
   let totalMatchesCount = 0;
   roundKeys.forEach((key) => {
     totalMatchesCount += matchesObj[key].length;
@@ -1194,16 +1193,3 @@ function showToast(message, type = "info") {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
-
-// ============================================
-// INIT
-// ============================================
-document.addEventListener("DOMContentLoaded", function () {
-  console.log("🚀 admin.js DOM loaded!");
-  checkAdminAuth();
-
-  teamsInput.addEventListener("input", () => {
-    const count = teamsInput.value.split("\n").filter((t) => t.trim()).length;
-    if (groupTeamCount) groupTeamCount.textContent = `${count} tim`;
-  });
-});
