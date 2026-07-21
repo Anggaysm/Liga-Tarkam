@@ -3,7 +3,7 @@
 // ============================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCpePR-6vvSW7nXSdccDsMcgxnkBu0P836I",
+  apiKey: "AIzaSyCePR-6vvSW7nXSdccDsMcgxnkBuoP836I",
   authDomain: "ligawarga-9909e.firebaseapp.com",
   projectId: "ligawarga-9909e",
   storageBucket: "ligawarga-9909e.firebasestorage.app",
