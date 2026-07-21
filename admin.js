@@ -1,5 +1,5 @@
 // ============================================
-// ADMIN.JS - ADMIN PANEL
+// ADMIN.JS - ADMIN PANEL (FIXED)
 // ============================================
 
 // ============================================
@@ -38,12 +38,19 @@ const undoBtn = document.getElementById("undoBtn");
 const historyCount = document.getElementById("historyCount");
 const adminInfo = document.getElementById("adminInfo");
 
+console.log("✅ admin.js loaded!");
+
 // ============================================
 // AUTH CHECK
 // ============================================
 function checkAdminAuth() {
+  console.log("🔍 checkAdminAuth called");
+
   auth.onAuthStateChanged((user) => {
+    console.log("👤 Auth state changed:", user ? user.email : "Not logged in");
+
     if (!user) {
+      console.log("⛔ No user, redirecting to index.html");
       window.location.href = "index.html";
       return;
     }
@@ -52,18 +59,21 @@ function checkAdminAuth() {
       .doc(user.uid)
       .get()
       .then((doc) => {
+        console.log("📄 User doc:", doc.exists ? doc.data() : "Not found");
         if (doc.exists && doc.data().role === "admin") {
           adminInfo.textContent = `👋 ${user.email} (Admin)`;
+          console.log("✅ Admin verified!");
           loadData();
         } else {
           adminInfo.textContent = "⛔ Akses ditolak! Bukan admin.";
+          console.log("⛔ Not admin!");
           setTimeout(() => {
             window.location.href = "index.html";
           }, 2000);
         }
       })
       .catch((err) => {
-        console.error("Error cek admin:", err);
+        console.error("❌ Error cek admin:", err);
         window.location.href = "index.html";
       });
   });
@@ -73,20 +83,29 @@ function checkAdminAuth() {
 // LOGOUT
 // ============================================
 function logout() {
-  auth.signOut().then(() => {
-    window.location.href = "index.html";
-  });
+  console.log("👋 Logout called");
+  auth
+    .signOut()
+    .then(() => {
+      window.location.href = "index.html";
+    })
+    .catch((err) => {
+      console.error("❌ Logout error:", err);
+    });
 }
 
 // ============================================
 // LOAD DATA FROM FIREBASE
 // ============================================
 function loadData() {
+  console.log("📥 Loading data from Firebase...");
+
   // Load groups
   db.collection("groups")
     .doc("data")
     .get()
     .then((doc) => {
+      console.log("📄 Groups doc:", doc.exists ? "Exists" : "Not exists");
       if (doc.exists) {
         const data = doc.data();
         groups = data.groups || [];
@@ -99,8 +118,9 @@ function loadData() {
         groupTeamStats = data.groupTeamStats || {};
         groupMatchResults = data.groupMatchResults || {};
         currentGroupIndex = data.currentGroupIndex || 0;
+        console.log("✅ Data loaded:", groups.length, "groups");
       } else {
-        // Initialize empty
+        console.log("📝 No data, initializing empty");
         groups = [];
         groupTeams = {};
         groupMatches = {};
@@ -115,8 +135,7 @@ function loadData() {
       updateAll();
     })
     .catch((err) => {
-      console.error("Error load data:", err);
-      // Initialize empty
+      console.error("❌ Error load data:", err);
       groups = [];
       groupTeams = {};
       groupMatches = {};
@@ -133,28 +152,35 @@ function loadData() {
   // Real-time listener
   db.collection("groups")
     .doc("data")
-    .onSnapshot((doc) => {
-      if (doc.exists) {
-        const data = doc.data();
-        groups = data.groups || [];
-        groupTeams = data.groupTeams || {};
-        groupMatches = data.groupMatches || {};
-        groupCurrentRound = data.groupCurrentRound || {};
-        groupCurrentMatch = data.groupCurrentMatch || {};
-        groupPreviousRank = data.groupPreviousRank || {};
-        groupHistory = data.groupHistory || {};
-        groupTeamStats = data.groupTeamStats || {};
-        groupMatchResults = data.groupMatchResults || {};
-        currentGroupIndex = data.currentGroupIndex || 0;
-        updateAll();
-      }
-    });
+    .onSnapshot(
+      (doc) => {
+        console.log("🔄 Real-time update received");
+        if (doc.exists) {
+          const data = doc.data();
+          groups = data.groups || [];
+          groupTeams = data.groupTeams || {};
+          groupMatches = data.groupMatches || {};
+          groupCurrentRound = data.groupCurrentRound || {};
+          groupCurrentMatch = data.groupCurrentMatch || {};
+          groupPreviousRank = data.groupPreviousRank || {};
+          groupHistory = data.groupHistory || {};
+          groupTeamStats = data.groupTeamStats || {};
+          groupMatchResults = data.groupMatchResults || {};
+          currentGroupIndex = data.currentGroupIndex || 0;
+          updateAll();
+        }
+      },
+      (err) => {
+        console.error("❌ Listener error:", err);
+      },
+    );
 }
 
 // ============================================
 // SAVE DATA TO FIREBASE
 // ============================================
 function saveData() {
+  console.log("💾 Saving data to Firebase...");
   const data = {
     groups,
     groupTeams,
@@ -396,6 +422,7 @@ function generateAllGroups() {
 // SUBMIT SCORE
 // ============================================
 function submitScore() {
+  console.log("📝 submitScore called");
   const groupName = getCurrentGroupName();
   if (!groupName) {
     showToast("⚠️ Pilih grup terlebih dahulu!", "warning");
@@ -1142,8 +1169,10 @@ function showToast(message, type = "info") {
 // ============================================
 // INIT
 // ============================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
+  console.log("🚀 admin.js DOM loaded!");
   checkAdminAuth();
+
   teamsInput.addEventListener("input", () => {
     const count = teamsInput.value.split("\n").filter((t) => t.trim()).length;
     if (groupTeamCount) groupTeamCount.textContent = `${count} tim`;
