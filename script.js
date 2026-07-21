@@ -144,7 +144,7 @@ function generateLeague() {
 
 function generateMatches() {
   matches = [];
-  const totalPutaran = 2;
+  const totalPutaran = 1;
 
   for (let p = 0; p < totalPutaran; p++) {
     let putaranMatches = [];
