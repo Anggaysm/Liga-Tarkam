@@ -327,26 +327,30 @@ function generateMatchesForGroup(groupName) {
   const teams = groupTeams[groupName] || [];
   if (teams.length < 2) return false;
 
-  const matches = [];
+  const matches = {};
   const totalRounds = 1;
 
   for (let r = 0; r < totalRounds; r++) {
-    const roundMatches = [];
+    const roundKey = `round_${r}`;
+    matches[roundKey] = [];
+
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
         if (r === 0) {
-          roundMatches.push({ home: i, away: j });
+          matches[roundKey].push({ home: i, away: j });
         } else {
-          roundMatches.push({ home: j, away: i });
+          matches[roundKey].push({ home: j, away: i });
         }
       }
     }
     // Shuffle
-    for (let i = roundMatches.length - 1; i > 0; i--) {
+    for (let i = matches[roundKey].length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [roundMatches[i], roundMatches[j]] = [roundMatches[j], roundMatches[i]];
+      [matches[roundKey][i], matches[roundKey][j]] = [
+        matches[roundKey][j],
+        matches[roundKey][i],
+      ];
     }
-    matches.push(roundMatches);
   }
 
   groupMatches[groupName] = matches;
@@ -419,7 +423,7 @@ function generateAllGroups() {
 }
 
 // ============================================
-// SUBMIT SCORE
+// SUBMIT SCORE - FIXED FOR OBJECT STRUCTURE
 // ============================================
 function submitScore() {
   console.log("📝 submitScore called");
@@ -442,21 +446,25 @@ function submitScore() {
     return;
   }
 
-  const matches = groupMatches[groupName] || [];
-  const currentRound = groupCurrentRound[groupName] || 0;
-  const currentMatch = groupCurrentMatch[groupName] || 0;
+  // 🔥 AMBIL MATCHES OBJEK
+  const matchesObj = groupMatches[groupName] || {};
+  const roundKeys = Object.keys(matchesObj).sort();
 
-  if (matches.length === 0) {
+  if (roundKeys.length === 0) {
     showToast("⚠️ Belum ada jadwal! Generate liga dulu!", "warning");
     return;
   }
 
-  if (currentRound >= matches.length) {
+  const currentRound = groupCurrentRound[groupName] || 0;
+  const currentMatch = groupCurrentMatch[groupName] || 0;
+  const roundKey = `round_${currentRound}`;
+  const round = matchesObj[roundKey] || [];
+
+  if (currentRound >= roundKeys.length) {
     showToast("🏆 Liga sudah selesai!", "info");
     return;
   }
 
-  const round = matches[currentRound];
   if (currentMatch >= round.length) {
     groupCurrentMatch[groupName] = 0;
     groupCurrentRound[groupName] = currentRound + 1;
@@ -474,6 +482,7 @@ function submitScore() {
   const teamA = teamNames[match.home];
   const teamB = teamNames[match.away];
 
+  // Inisialisasi stats kalo belum ada
   if (!groupTeamStats[groupName]) {
     groupTeamStats[groupName] = {};
     teamNames.forEach((name) => {
@@ -490,7 +499,7 @@ function submitScore() {
   }
 
   const stats = groupTeamStats[groupName];
-  if (!stats[teamA])
+  if (!stats[teamA]) {
     stats[teamA] = {
       played: 0,
       win: 0,
@@ -500,7 +509,8 @@ function submitScore() {
       ga: 0,
       points: 0,
     };
-  if (!stats[teamB])
+  }
+  if (!stats[teamB]) {
     stats[teamB] = {
       played: 0,
       win: 0,
@@ -510,10 +520,12 @@ function submitScore() {
       ga: 0,
       points: 0,
     };
+  }
 
   const statA = stats[teamA];
   const statB = stats[teamB];
 
+  // Update statistik
   statA.played++;
   statB.played++;
   statA.gf += scoreA;
@@ -536,6 +548,7 @@ function submitScore() {
     statB.points += 1;
   }
 
+  // Simpan hasil match
   if (!groupMatchResults[groupName]) groupMatchResults[groupName] = [];
   groupMatchResults[groupName].push({
     round: currentRound,
@@ -546,6 +559,7 @@ function submitScore() {
     scoreB: scoreB,
   });
 
+  // Lanjut ke match berikutnya
   groupCurrentMatch[groupName] = currentMatch + 1;
   updatePreviousRank(groupName);
 
@@ -844,6 +858,9 @@ function updateStandings() {
     `${teamNames.length} tim | ${totalMatchesPlayed} pertandingan dimainkan`;
 }
 
+// ============================================
+// UPDATE MATCH - FIXED FOR OBJECT STRUCTURE
+// ============================================
 function updateMatch() {
   if (!matchArea) return;
 
@@ -854,31 +871,36 @@ function updateMatch() {
     groupTeams[groupName].length === 0
   ) {
     matchArea.innerHTML = `
-                    <div class="empty-state">
-                        <span class="empty-icon">⚽</span>
-                        <h3>Belum ada pertandingan</h3>
-                        <p>Pilih grup dan generate liga terlebih dahulu</p>
-                    </div>
-                `;
+            <div class="empty-state">
+                <span class="empty-icon">⚽</span>
+                <h3>Belum ada pertandingan</h3>
+                <p>Pilih grup dan generate liga terlebih dahulu</p>
+            </div>
+        `;
     return;
   }
 
-  const matches = groupMatches[groupName] || [];
-  if (matches.length === 0) {
+  // 🔥 AMBIL MATCHES OBJEK
+  const matchesObj = groupMatches[groupName] || {};
+  const roundKeys = Object.keys(matchesObj).sort();
+
+  if (roundKeys.length === 0) {
     matchArea.innerHTML = `
-                    <div class="empty-state">
-                        <span class="empty-icon">⚽</span>
-                        <h3>Belum ada jadwal</h3>
-                        <p>Klik "Generate Liga" untuk membuat jadwal</p>
-                    </div>
-                `;
+            <div class="empty-state">
+                <span class="empty-icon">⚽</span>
+                <h3>Belum ada jadwal</h3>
+                <p>Klik "Generate Liga" untuk membuat jadwal</p>
+            </div>
+        `;
     return;
   }
 
   const currentRound = groupCurrentRound[groupName] || 0;
   const currentMatch = groupCurrentMatch[groupName] || 0;
+  const roundKey = `round_${currentRound}`;
+  const round = matchesObj[roundKey] || [];
 
-  if (currentRound >= matches.length) {
+  if (currentRound >= roundKeys.length) {
     const teamNames = groupTeams[groupName] || [];
     const stats = groupTeamStats[groupName] || {};
     let topTeam = teamNames[0] || "";
@@ -893,23 +915,22 @@ function updateMatch() {
     });
 
     matchArea.innerHTML = `
-                    <div class="match-finished">
-                        <span class="trophy">🏆</span>
-                        <h3>Liga Selesai!</h3>
-                        <p style="color: var(--text-secondary);">
-                            Juara: <strong style="color: #f59e0b;">${topTeam}</strong> dengan ${topPoints} poin
-                        </p>
-                        <div class="match-actions" style="margin-top:16px;">
-                            <button onclick="generateCurrentGroup()" class="btn-primary">🔄 Generate Ulang</button>
-                            <button onclick="undoLastMatch()" class="btn-warning">↩️ Undo</button>
-                        </div>
-                    </div>
-                `;
+            <div class="match-finished">
+                <span class="trophy">🏆</span>
+                <h3>Liga Selesai!</h3>
+                <p style="color: var(--text-secondary);">
+                    Juara: <strong style="color: #f59e0b;">${topTeam}</strong> dengan ${topPoints} poin
+                </p>
+                <div class="match-actions" style="margin-top:16px;">
+                    <button onclick="generateCurrentGroup()" class="btn-primary">🔄 Generate Ulang</button>
+                    <button onclick="undoLastMatch()" class="btn-warning">↩️ Undo</button>
+                </div>
+            </div>
+        `;
     if (matchProgress) matchProgress.textContent = "100%";
     return;
   }
 
-  const round = matches[currentRound];
   if (currentMatch >= round.length) {
     groupCurrentRound[groupName] = currentRound + 1;
     groupCurrentMatch[groupName] = 0;
@@ -922,45 +943,47 @@ function updateMatch() {
   const teamNames = groupTeams[groupName] || [];
   const teamA = teamNames[match.home];
   const teamB = teamNames[match.away];
-  const totalRounds = matches.length;
-  const totalMatchesCount = matches.flat().length;
+  const totalRounds = roundKeys.length;
+
+  // Hitung total matches
+  let totalMatchesCount = 0;
+  roundKeys.forEach((key) => {
+    totalMatchesCount += matchesObj[key].length;
+  });
 
   let done = 0;
-  for (let r = 0; r < matches.length; r++) {
-    if (r < currentRound) {
-      done += matches[r].length;
-    } else if (r === currentRound) {
-      done += currentMatch;
-      break;
-    }
+  for (let i = 0; i < currentRound; i++) {
+    const key = `round_${i}`;
+    done += (matchesObj[key] || []).length;
   }
+  done += currentMatch;
 
   const progress =
     totalMatchesCount > 0 ? Math.round((done / totalMatchesCount) * 100) : 0;
 
   matchArea.innerHTML = `
-                <div style="width:100%;">
-                    <div class="match-header">
-                        <span class="match-round">🎯 Putaran ${currentRound + 1}/${totalRounds}</span>
-                        <span class="match-round">Match ${currentMatch + 1}/${round.length}</span>
-                    </div>
-                    <div class="match-teams">
-                        ${teamA} <span class="vs">vs</span> ${teamB}
-                    </div>
-                    <div class="match-inputs">
-                        <input type="number" id="scoreA" value="0" min="0" max="99">
-                        <span class="vs-text">⚽</span>
-                        <input type="number" id="scoreB" value="0" min="0" max="99">
-                    </div>
-                    <div class="match-actions">
-                        <button onclick="submitScore()" class="btn-success">✅ Submit</button>
-                        <button onclick="quickDraw()" class="btn-primary">🤝 Draw 0-0</button>
-                    </div>
-                    <div style="text-align:center;margin-top:8px;">
-                        <span class="text-muted">Progress: ${progress}%</span>
-                    </div>
-                </div>
-            `;
+        <div style="width:100%;">
+            <div class="match-header">
+                <span class="match-round">🎯 Putaran ${currentRound + 1}/${totalRounds}</span>
+                <span class="match-round">Match ${currentMatch + 1}/${round.length}</span>
+            </div>
+            <div class="match-teams">
+                ${teamA} <span class="vs">vs</span> ${teamB}
+            </div>
+            <div class="match-inputs">
+                <input type="number" id="scoreA" value="0" min="0" max="99">
+                <span class="vs-text">⚽</span>
+                <input type="number" id="scoreB" value="0" min="0" max="99">
+            </div>
+            <div class="match-actions">
+                <button onclick="submitScore()" class="btn-success">✅ Submit</button>
+                <button onclick="quickDraw()" class="btn-primary">🤝 Draw 0-0</button>
+            </div>
+            <div style="text-align:center;margin-top:8px;">
+                <span class="text-muted">Progress: ${progress}%</span>
+            </div>
+        </div>
+    `;
 
   if (matchProgress) matchProgress.textContent = `${progress}%`;
 }
@@ -975,25 +998,27 @@ function updateFixture() {
     groupTeams[groupName].length === 0
   ) {
     fixtureArea.innerHTML = `
-                    <div class="empty-state">
-                        <span class="empty-icon">📅</span>
-                        <h3>Belum ada jadwal</h3>
-                        <p>Generate liga untuk melihat jadwal</p>
-                    </div>
-                `;
+            <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <h3>Belum ada jadwal</h3>
+                <p>Generate liga untuk melihat jadwal</p>
+            </div>
+        `;
     if (fixtureCount) fixtureCount.textContent = "0 match";
     return;
   }
 
-  const matches = groupMatches[groupName] || [];
-  if (matches.length === 0) {
+  const matchesObj = groupMatches[groupName] || {};
+  const roundKeys = Object.keys(matchesObj).sort();
+
+  if (roundKeys.length === 0) {
     fixtureArea.innerHTML = `
-                    <div class="empty-state">
-                        <span class="empty-icon">📅</span>
-                        <h3>Belum ada jadwal</h3>
-                        <p>Generate liga terlebih dahulu</p>
-                    </div>
-                `;
+            <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <h3>Belum ada jadwal</h3>
+                <p>Generate liga terlebih dahulu</p>
+            </div>
+        `;
     if (fixtureCount) fixtureCount.textContent = "0 match";
     return;
   }
@@ -1007,26 +1032,30 @@ function updateFixture() {
   let playedCount = 0;
   let totalCount = 0;
 
-  matches.forEach((round, roundIdx) => {
+  roundKeys.forEach((roundKey, roundIdx) => {
+    const round = matchesObj[roundKey] || [];
     const isPastRound = roundIdx < currentRound;
     const isCurrentRound = roundIdx === currentRound;
 
     html += `<div class="fixture-round">`;
-    html += `<div class="fixture-round-title">
-                        <span>${isPastRound ? "✅" : isCurrentRound ? "▶️" : "📅"} Putaran ${roundIdx + 1}</span>
-                        <span>${round.length} match</span>
-                    </div>`;
+    html += `
+            <div class="fixture-round-title">
+                <span>${isPastRound ? "✅" : isCurrentRound ? "▶️" : "📅"} Putaran ${roundIdx + 1}</span>
+                <span>${round.length} match</span>
+            </div>
+        `;
 
     round.forEach((match, matchIdx) => {
       const teamA = teamNames[match.home];
       const teamB = teamNames[match.away];
+
       const isPlayed =
         roundIdx < currentRound ||
         (roundIdx === currentRound && matchIdx < currentMatch);
       const isCurrent = roundIdx === currentRound && matchIdx === currentMatch;
 
       let statusClass = "upcoming";
-      let statusText = "Akan datang";
+      let statusTextStatus = "Akan datang";
       let scoreText = "vs";
       let scoreClass = "upcoming";
 
@@ -1036,7 +1065,7 @@ function updateFixture() {
 
       if (isPlayed || result) {
         statusClass = "played";
-        statusText = "Selesai";
+        statusTextStatus = "✅ Selesai";
         if (result) {
           scoreText = `${result.scoreA} - ${result.scoreB}`;
           scoreClass = "played";
@@ -1046,7 +1075,7 @@ function updateFixture() {
         playedCount++;
       } else if (isCurrent) {
         statusClass = "current";
-        statusText = "Sedang berlangsung";
+        statusTextStatus = "⚡ Sedang";
         scoreText = "vs";
         scoreClass = "upcoming";
       }
@@ -1060,16 +1089,16 @@ function updateFixture() {
           : "fixture-item upcoming";
 
       html += `
-                        <div class="${itemClass}">
-                            <div class="fixture-teams">
-                                <span>${teamA}</span>
-                                <span class="vs">vs</span>
-                                <span>${teamB}</span>
-                                <span class="fixture-status ${statusClass}">${statusText}</span>
-                            </div>
-                            <div class="fixture-score ${scoreClass}">${scoreText}</div>
-                        </div>
-                    `;
+                <div class="${itemClass}">
+                    <div class="fixture-teams">
+                        <span>${teamA}</span>
+                        <span class="vs">vs</span>
+                        <span>${teamB}</span>
+                        <span class="fixture-status ${statusClass}">${statusTextStatus}</span>
+                    </div>
+                    <div class="fixture-score ${scoreClass}">${scoreText}</div>
+                </div>
+            `;
     });
 
     html += `</div>`;

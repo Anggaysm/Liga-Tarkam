@@ -20,207 +20,307 @@
     />
   </head>
   <body>
-    <div class="container">
-      <!-- Header -->
-      <header class="header">
-        <h1>⚽ Admin Panel</h1>
-        <p class="subtitle" id="adminInfo">Loading...</p>
-      </header>
+    <!-- ========================================== -->
+    <!-- 🔥 TAMBAHKAN INI DI SINI (BAGIAN ATAS BODY) -->
+    <!-- ========================================== -->
+    <div
+      id="authGuard"
+      style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #0a0e1a;
+        color: #f0f4ff;
+        font-family: sans-serif;
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+        text-align: center;
+      "
+    >
+      <div style="font-size: 48px">🔒</div>
+      <h2 style="font-size: 24px">Akses Dibatasi</h2>
+      <p style="color: #94a3b8; max-width: 400px">
+        Halaman ini hanya untuk admin. Silakan login terlebih dahulu.
+      </p>
+      <button
+        onclick="window.location.href = 'index.html'"
+        class="btn-primary"
+        style="
+          padding: 12px 32px;
+          border: none;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #38bdf8, #818cf8);
+          color: white;
+          font-weight: 700;
+          cursor: pointer;
+          font-size: 16px;
+        "
+      >
+        🏠 Kembali ke Home
+      </button>
+    </div>
 
-      <!-- Main Content -->
-      <main>
-        <!-- Actions Bar -->
-        <div class="admin-actions">
-          <button onclick="logout()" class="btn-danger">🚪 Logout</button>
-          <button
-            onclick="window.location.href = 'user.html'"
-            class="btn-outline"
-          >
-            👀 Lihat User View
-          </button>
-          <button
-            onclick="window.location.href = 'index.html'"
-            class="btn-outline"
-          >
-            🏠 Home
-          </button>
-        </div>
+    <!-- ========================================== -->
+    <!-- KONTEN ADMIN (AWALNYA DISEMBUNYIKAN)       -->
+    <!-- ========================================== -->
+    <div id="adminContent" style="display: none">
+      <div class="container">
+        <!-- Header -->
+        <header class="header">
+          <h1>⚽ Admin Panel</h1>
+          <p class="subtitle" id="adminInfo">Loading...</p>
+        </header>
 
-        <!-- Group Management -->
-        <div class="card">
-          <div class="card-header">
-            <h2>📝 Kelola Grup</h2>
-            <span class="badge" id="groupCount">0 grup</span>
-          </div>
-
-          <div class="group-input-row">
-            <input
-              type="text"
-              id="groupNameInput"
-              placeholder="Nama grup baru..."
-              class="input-text"
-            />
-            <button onclick="addGroup()" class="btn-primary">
-              ➕ Tambah Grup
+        <!-- Main Content -->
+        <main>
+          <!-- Actions Bar -->
+          <div class="admin-actions">
+            <button onclick="logout()" class="btn-danger">🚪 Logout</button>
+            <button
+              onclick="window.location.href = 'user.html'"
+              class="btn-outline"
+            >
+              👀 Lihat User View
+            </button>
+            <button
+              onclick="window.location.href = 'index.html'"
+              class="btn-outline"
+            >
+              🏠 Home
             </button>
           </div>
 
-          <div class="group-tabs" id="groupTabs"></div>
-
-          <div id="groupTeamsContainer">
-            <div class="group-teams-header">
-              <h3 id="currentGroupLabel">📋 Tim di Grup</h3>
-              <span class="badge" id="groupTeamCount">0 tim</span>
+          <!-- Group Management -->
+          <div class="card">
+            <div class="card-header">
+              <h2>📝 Kelola Grup</h2>
+              <span class="badge" id="groupCount">0 grup</span>
             </div>
-            <textarea
-              id="teamsInput"
-              placeholder="Masukkan nama tim...&#10;Contoh:&#10;Persija&#10;Persib&#10;Arema"
-            ></textarea>
-            <div class="input-actions">
-              <button onclick="updateGroupTeams()" class="btn-success">
-                💾 Update Tim Grup
+
+            <div class="group-input-row">
+              <input
+                type="text"
+                id="groupNameInput"
+                placeholder="Nama grup baru..."
+                class="input-text"
+              />
+              <button onclick="addGroup()" class="btn-primary">
+                ➕ Tambah Grup
               </button>
-              <button onclick="loadExampleTeams()" class="btn-outline">
-                📋 Contoh Tim
+            </div>
+
+            <div class="group-tabs" id="groupTabs"></div>
+
+            <div id="groupTeamsContainer">
+              <div class="group-teams-header">
+                <h3 id="currentGroupLabel">📋 Tim di Grup</h3>
+                <span class="badge" id="groupTeamCount">0 tim</span>
+              </div>
+              <textarea
+                id="teamsInput"
+                placeholder="Masukkan nama tim...&#10;Contoh:&#10;Persija&#10;Persib&#10;Arema"
+              ></textarea>
+              <div class="input-actions">
+                <button onclick="updateGroupTeams()" class="btn-success">
+                  💾 Update Tim Grup
+                </button>
+                <button onclick="loadExampleTeams()" class="btn-outline">
+                  📋 Contoh Tim
+                </button>
+              </div>
+            </div>
+
+            <div class="generate-all-actions">
+              <button
+                onclick="generateCurrentGroup()"
+                class="btn-primary"
+                style="flex: 1"
+              >
+                ⚡ Generate Grup Ini
+              </button>
+              <button
+                onclick="generateAllGroups()"
+                class="btn-success"
+                style="flex: 2"
+              >
+                🚀 Generate Semua Grup
               </button>
             </div>
           </div>
 
-          <div class="generate-all-actions">
-            <button
-              onclick="generateCurrentGroup()"
-              class="btn-primary"
-              style="flex: 1"
-            >
-              ⚡ Generate Grup Ini
-            </button>
-            <button
-              onclick="generateAllGroups()"
-              class="btn-success"
-              style="flex: 2"
-            >
-              🚀 Generate Semua Grup
-            </button>
+          <!-- Stats -->
+          <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+              <span class="stat-icon">🏟️</span>
+              <span class="stat-value" id="totalMatches">0</span>
+              <span class="stat-label">Total Match</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">⚽</span>
+              <span class="stat-value" id="totalGoals">0</span>
+              <span class="stat-label">Total Gol</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">📊</span>
+              <span class="stat-value" id="avgGoals">0.0</span>
+              <span class="stat-label">Rata-rata Gol</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-icon">🏆</span>
+              <span class="stat-value" id="topScorer">-</span>
+              <span class="stat-label">Top Skor</span>
+            </div>
           </div>
-        </div>
 
-        <!-- Stats -->
-        <div class="stats-grid" id="statsGrid">
-          <div class="stat-card">
-            <span class="stat-icon">🏟️</span>
-            <span class="stat-value" id="totalMatches">0</span>
-            <span class="stat-label">Total Match</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">⚽</span>
-            <span class="stat-value" id="totalGoals">0</span>
-            <span class="stat-label">Total Gol</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">📊</span>
-            <span class="stat-value" id="avgGoals">0.0</span>
-            <span class="stat-label">Rata-rata Gol</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">🏆</span>
-            <span class="stat-value" id="topScorer">-</span>
-            <span class="stat-label">Top Skor</span>
-          </div>
-        </div>
-
-        <!-- Main Grid -->
-        <div class="grid grid-3">
-          <!-- Standings -->
-          <div class="card card-standings">
-            <div class="card-header">
-              <h2>📊 Klasemen</h2>
-              <div class="card-actions">
-                <button onclick="exportStandings()" class="btn-icon">📥</button>
+          <!-- Main Grid -->
+          <div class="grid grid-3">
+            <!-- Standings -->
+            <div class="card card-standings">
+              <div class="card-header">
+                <h2>📊 Klasemen</h2>
+                <div class="card-actions">
+                  <button onclick="exportStandings()" class="btn-icon">
+                    📥
+                  </button>
+                </div>
+              </div>
+              <div class="table-wrapper">
+                <table id="standingsTable">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Tim</th>
+                      <th>M</th>
+                      <th>W</th>
+                      <th>D</th>
+                      <th>L</th>
+                      <th>GF</th>
+                      <th>GA</th>
+                      <th>SG</th>
+                      <th>Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <span class="text-muted" id="standingInfo">Belum ada data</span>
               </div>
             </div>
-            <div class="table-wrapper">
-              <table id="standingsTable">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Tim</th>
-                    <th>M</th>
-                    <th>W</th>
-                    <th>D</th>
-                    <th>L</th>
-                    <th>GF</th>
-                    <th>GA</th>
-                    <th>SG</th>
-                    <th>Pts</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-            <div class="table-footer">
-              <span class="text-muted" id="standingInfo">Belum ada data</span>
-            </div>
-          </div>
 
-          <!-- Match Area -->
-          <div class="card card-match">
-            <div class="card-header">
-              <h2>⚽ Pertandingan</h2>
-              <span class="badge" id="matchProgress">0%</span>
-            </div>
-            <div id="matchArea">
-              <div class="empty-state">
-                <span class="empty-icon">⚽</span>
-                <h3>Belum ada pertandingan</h3>
-                <p>Generate liga terlebih dahulu</p>
+            <!-- Match Area -->
+            <div class="card card-match">
+              <div class="card-header">
+                <h2>⚽ Pertandingan</h2>
+                <span class="badge" id="matchProgress">0%</span>
+              </div>
+              <div id="matchArea">
+                <div class="empty-state">
+                  <span class="empty-icon">⚽</span>
+                  <h3>Belum ada pertandingan</h3>
+                  <p>Generate liga terlebih dahulu</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Fixture -->
-          <div class="card card-fixture">
-            <div class="card-header">
-              <h2>📅 Jadwal</h2>
-              <span class="badge" id="fixtureCount">0 match</span>
-            </div>
-            <div id="fixtureArea">
-              <div class="empty-state">
-                <span class="empty-icon">📅</span>
-                <h3>Belum ada jadwal</h3>
-                <p>Generate liga untuk melihat jadwal</p>
+            <!-- Fixture -->
+            <div class="card card-fixture">
+              <div class="card-header">
+                <h2>📅 Jadwal</h2>
+                <span class="badge" id="fixtureCount">0 match</span>
+              </div>
+              <div id="fixtureArea">
+                <div class="empty-state">
+                  <span class="empty-icon">📅</span>
+                  <h3>Belum ada jadwal</h3>
+                  <p>Generate liga untuk melihat jadwal</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Reset -->
-        <div class="card">
-          <div class="actions-row">
-            <button
-              onclick="undoLastMatch()"
-              class="btn-warning"
-              style="flex: 1"
-              id="undoBtn"
-            >
-              ↩️ Undo (Ctrl+Z)
-            </button>
-            <button onclick="resetAll()" class="btn-danger" style="flex: 1">
-              🗑️ Reset Semua Data
-            </button>
+          <!-- Reset -->
+          <div class="card">
+            <div class="actions-row">
+              <button
+                onclick="undoLastMatch()"
+                class="btn-warning"
+                style="flex: 1"
+                id="undoBtn"
+              >
+                ↩️ Undo (Ctrl+Z)
+              </button>
+              <button onclick="resetAll()" class="btn-danger" style="flex: 1">
+                🗑️ Reset Semua Data
+              </button>
+            </div>
+            <div class="history-info">
+              <small id="historyCount">History: 0 langkah</small>
+              <small id="autoSaveInfo">💾 Auto-sync ke Firebase</small>
+            </div>
           </div>
-          <div class="history-info">
-            <small id="historyCount">History: 0 langkah</small>
-            <small id="autoSaveInfo">💾 Auto-sync ke Firebase</small>
-          </div>
-        </div>
-      </main>
+        </main>
 
-      <footer class="footer">
-        <p><b>⚽ Admin Panel</b> • Real-time • Firebase</p>
-      </footer>
+        <footer class="footer">
+          <p><b>⚽ Admin Panel</b> • Real-time • Firebase</p>
+        </footer>
+      </div>
     </div>
 
     <script src="firebase-config.js"></script>
-    <script src="admin.js"></script>
+    <script>
+      // ==========================================
+      // AUTH GUARD - CEK SEBELUM ADMIN.JS DIJALANKAN
+      // ==========================================
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("🔐 Auth guard running...");
+
+        const authGuard = document.getElementById("authGuard");
+        const adminContent = document.getElementById("adminContent");
+
+        // Cek status login
+        auth.onAuthStateChanged(function (user) {
+          console.log("👤 User:", user ? user.email : "Not logged in");
+
+          if (!user) {
+            // Ga login → tampilkan authGuard
+            authGuard.style.display = "flex";
+            adminContent.style.display = "none";
+            console.log("⛔ Not logged in, showing auth guard");
+            return;
+          }
+
+          // Cek apakah user adalah admin
+          db.collection("users")
+            .doc(user.uid)
+            .get()
+            .then(function (doc) {
+              if (doc.exists && doc.data().role === "admin") {
+                // Admin → tampilkan konten
+                authGuard.style.display = "none";
+                adminContent.style.display = "block";
+                console.log("✅ Admin verified, loading admin panel");
+
+                // Load admin.js
+                var script = document.createElement("script");
+                script.src = "admin.js";
+                document.body.appendChild(script);
+              } else {
+                // Bukan admin → tampilkan authGuard
+                authGuard.style.display = "flex";
+                adminContent.style.display = "none";
+                console.log("⛔ Not admin, showing auth guard");
+              }
+            })
+            .catch(function (err) {
+              console.error("❌ Error checking admin:", err);
+              authGuard.style.display = "flex";
+              adminContent.style.display = "none";
+            });
+        });
+      });
+    </script>
   </body>
 </html>

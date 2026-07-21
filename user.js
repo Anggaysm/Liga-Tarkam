@@ -1,9 +1,8 @@
 // ============================================
-// USER.JS - PUBLIC VIEW (DEBUG VERSION)
+// USER.JS - SIMPLE VERSION (GET ONLY)
 // ============================================
 
 console.log("👀 user.js loaded!");
-console.log("📍 Current URL:", window.location.href);
 
 // ============================================
 // STATE
@@ -16,7 +15,6 @@ let groupCurrentRound = {};
 let groupCurrentMatch = {};
 let groupTeamStats = {};
 let groupMatchResults = {};
-let isListenerActive = false;
 
 // ============================================
 // DOM REFS
@@ -34,124 +32,72 @@ const statusText = document.getElementById("statusText");
 const standingInfo = document.getElementById("standingInfo");
 
 // ============================================
-// CEK KONEKSI FIREBASE
-// ============================================
-function checkFirebase() {
-  console.log("🔍 Checking Firebase...");
-
-  // Cek firebase
-  if (typeof firebase === "undefined") {
-    console.error("❌ firebase is undefined!");
-    return false;
-  }
-  console.log("✅ firebase loaded");
-
-  // Cek firebaseConfig
-  if (typeof firebaseConfig === "undefined") {
-    console.error("❌ firebaseConfig is undefined!");
-    return false;
-  }
-  console.log("✅ firebaseConfig loaded:", firebaseConfig);
-
-  // Cek db
-  if (typeof db === "undefined") {
-    console.error("❌ db is undefined!");
-    return false;
-  }
-  console.log("✅ db loaded");
-
-  // Cek auth
-  if (typeof auth === "undefined") {
-    console.error("❌ auth is undefined!");
-    return false;
-  }
-  console.log("✅ auth loaded");
-
-  return true;
-}
-
-// ============================================
-// LOAD DATA WITH REAL-TIME LISTENER
+// LOAD DATA - PAKAI GET() AJA
 // ============================================
 function loadData() {
-  console.log("📥 Loading user data...");
+  console.log("📥 Loading user data with get()...");
 
-  // Cek Firebase dulu
-  if (!checkFirebase()) {
-    console.error("❌ Firebase not ready!");
-    if (statusDot) statusDot.className = "online-dot offline";
-    if (statusText) statusText.textContent = "⚠️ Firebase Error";
-    showToast("⚠️ Firebase tidak terhubung!", "error");
-    return;
-  }
-
-  // Set status loading
   if (statusDot) statusDot.className = "online-dot online";
   if (statusText) statusText.textContent = "🔄 Loading...";
 
-  // === REAL-TIME LISTENER ===
-  console.log("📡 Setting up real-time listener...");
-  console.log("📁 Path: groups/data");
+  // === PAKAI get() ===
+  db.collection("groups")
+    .doc("data")
+    .get()
+    .then((doc) => {
+      console.log("📄 get() result - exists:", doc.exists);
 
-  try {
-    const unsubscribe = db
-      .collection("groups")
-      .doc("data")
-      .onSnapshot(
-        (doc) => {
-          console.log("🔄 REAL-TIME UPDATE RECEIVED!");
-          console.log("📄 Doc exists:", doc.exists);
+      if (doc.exists) {
+        const data = doc.data();
+        console.log(
+          "📊 FULL DATA FROM FIRESTORE:",
+          JSON.stringify(data, null, 2),
+        );
 
-          if (doc.exists) {
-            const data = doc.data();
-            console.log("📊 Data:", data);
-            console.log("📋 Groups:", data.groups);
-            console.log("📋 GroupTeams:", data.groupTeams);
+        // === UPDATE ALL STATE ===
+        groups = data.groups || [];
+        groupTeams = data.groupTeams || {};
+        groupMatches = data.groupMatches || {};
+        groupCurrentRound = data.groupCurrentRound || {};
+        groupCurrentMatch = data.groupCurrentMatch || {};
+        groupTeamStats = data.groupTeamStats || {};
+        groupMatchResults = data.groupMatchResults || {};
+        currentGroupIndex = data.currentGroupIndex || 0;
 
-            // Update semua state
-            groups = data.groups || [];
-            groupTeams = data.groupTeams || {};
-            groupMatches = data.groupMatches || {};
-            groupCurrentRound = data.groupCurrentRound || {};
-            groupCurrentMatch = data.groupCurrentMatch || {};
-            groupTeamStats = data.groupTeamStats || {};
-            groupMatchResults = data.groupMatchResults || {};
-            currentGroupIndex = data.currentGroupIndex || 0;
+        console.log("📋 groups:", groups);
+        console.log("📋 groupTeams:", groupTeams);
+        console.log("📋 groupTeamStats:", groupTeamStats);
+        console.log("📋 GRUB A stats:", groupTeamStats["GRUB A"]);
 
-            // Update UI
-            updateAll();
+        // === UPDATE UI ===
+        updateAll();
 
-            // Update status
-            if (statusDot) statusDot.className = "online-dot online";
-            if (statusText) statusText.textContent = "✅ Online";
+        if (statusDot) statusDot.className = "online-dot online";
+        if (statusText) statusText.textContent = "✅ Online";
 
-            console.log("✅ UI Updated! Groups:", groups.length);
-          } else {
-            console.warn("⚠️ Document does not exist!");
-            if (statusDot) statusDot.className = "online-dot online";
-            if (statusText) statusText.textContent = "⏳ Belum ada data";
-            updateAll();
-          }
-        },
-        (error) => {
-          console.error("❌ LISTENER ERROR:", error);
-          console.error("❌ Error code:", error.code);
-          console.error("❌ Error message:", error.message);
+        showToast("✅ Data loaded!", "success");
+      } else {
+        console.warn("⚠️ No data!");
+        if (statusDot) statusDot.className = "online-dot online";
+        if (statusText) statusText.textContent = "⏳ Belum ada data";
+        updateAll();
+      }
+    })
+    .catch((error) => {
+      console.error("❌ Error:", error);
+      if (statusDot) statusDot.className = "online-dot offline";
+      if (statusText) statusText.textContent = "⚠️ Error";
+      showToast("⚠️ Gagal load data!", "error");
+    });
+}
 
-          if (statusDot) statusDot.className = "online-dot offline";
-          if (statusText) statusText.textContent = "⚠️ Offline";
-          showToast("⚠️ Gagal terhubung ke server: " + error.message, "error");
-        },
-      );
-
-    isListenerActive = true;
-    console.log("✅ Listener active!");
-  } catch (error) {
-    console.error("❌ Error setting up listener:", error);
-    if (statusDot) statusDot.className = "online-dot offline";
-    if (statusText) statusText.textContent = "⚠️ Error";
-    showToast("⚠️ Error: " + error.message, "error");
-  }
+// ============================================
+// FORCE REFRESH
+// ============================================
+function forceRefresh() {
+  console.log("🔄 Force refresh!");
+  showToast("🔄 Refreshing...", "info");
+  loadData();
 }
 
 // ============================================
@@ -172,7 +118,7 @@ function getCurrentGroupName() {
 // UPDATE ALL UI
 // ============================================
 function updateAll() {
-  console.log("🔄 Updating all UI...");
+  console.log("🔄 Updating UI...");
   updateGroupTabs();
   updateStandings();
   updateFixture();
@@ -228,8 +174,9 @@ function updateStandings() {
     return;
   }
 
-  // Get stats dari Firebase
   const stats = groupTeamStats[groupName] || {};
+  console.log("📊 Stats for", groupName, ":", stats);
+
   const teams = teamNames.map((name) => ({
     name,
     ...(stats[name] || {
@@ -243,7 +190,8 @@ function updateStandings() {
     }),
   }));
 
-  // Sortir klasemen
+  console.log("📊 Teams with stats:", teams);
+
   const sorted = [...teams];
   sorted.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -253,7 +201,6 @@ function updateStandings() {
     return b.gf - a.gf;
   });
 
-  // Render tabel
   sorted.forEach((team, index) => {
     const gd = team.gf - team.ga;
     const row = document.createElement("tr");
@@ -272,7 +219,6 @@ function updateStandings() {
     standingsBody.appendChild(row);
   });
 
-  // Update info
   const totalMatchesPlayed = teams.reduce((sum, t) => sum + t.played, 0) / 2;
   if (standingInfo) {
     standingInfo.textContent = `${teamNames.length} tim | ${totalMatchesPlayed} pertandingan dimainkan`;
@@ -302,8 +248,11 @@ function updateFixture() {
     return;
   }
 
-  const matches = groupMatches[groupName] || [];
-  if (matches.length === 0) {
+  // 🔥 UBAH: matches sekarang OBJECT, bukan ARRAY!
+  const matchesObj = groupMatches[groupName] || {};
+  const roundKeys = Object.keys(matchesObj).sort();
+
+  if (roundKeys.length === 0) {
     fixtureArea.innerHTML = `
             <div class="empty-state">
                 <span class="empty-icon">📅</span>
@@ -324,7 +273,9 @@ function updateFixture() {
   let playedCount = 0;
   let totalCount = 0;
 
-  matches.forEach((round, roundIdx) => {
+  // 🔥 LOOP PAKE roundKeys, BUKAN matches.forEach!
+  roundKeys.forEach((roundKey, roundIdx) => {
+    const round = matchesObj[roundKey] || [];
     const isPastRound = roundIdx < currentRound;
     const isCurrentRound = roundIdx === currentRound;
 
@@ -492,7 +443,7 @@ document.addEventListener("DOMContentLoaded", function () {
   console.log("🚀 user.js DOM loaded!");
   console.log("📍 Domain:", window.location.hostname);
 
-  // Cek semua Firebase dependencies
+  // Cek dependencies
   console.log("🔍 Checking dependencies...");
   console.log("  - firebase:", typeof firebase !== "undefined" ? "✅" : "❌");
   console.log(
@@ -500,11 +451,15 @@ document.addEventListener("DOMContentLoaded", function () {
     typeof firebaseConfig !== "undefined" ? "✅" : "❌",
   );
   console.log("  - db:", typeof db !== "undefined" ? "✅" : "❌");
-  console.log("  - auth:", typeof auth !== "undefined" ? "✅" : "❌");
 
   // Load data
   loadData();
 
+  // Auto refresh setiap 10 detik (untuk testing)
+  setInterval(() => {
+    console.log("🔄 Auto refresh...");
+    loadData();
+  }, 10000);
+
   console.log("👀 Liga Warga - User View");
-  console.log("📱 Dibuat oleh Grup Tolongin 🚀");
 });

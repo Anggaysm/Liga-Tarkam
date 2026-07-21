@@ -3,12 +3,12 @@
 // ============================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCePR-6vvSW7nXSdccDsMcgxnkBuoP836I",
-  authDomain: "ligawarga-9909e.firebaseapp.com",
-  projectId: "ligawarga-9909e",
-  storageBucket: "ligawarga-9909e.firebasestorage.app",
-  messagingSenderId: "27401056602",
-  appId: "1:27401056602:web:64016548badc5d9ba48363",
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
 };
 
 // Initialize Firebase

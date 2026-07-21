@@ -25,26 +25,29 @@
       <header class="header">
         <h1>⚽ Liga Warga</h1>
         <p class="subtitle">Live • Real-time • Update Otomatis</p>
-        <div class="header-actions">
-          <a
-            href="index.html"
-            class="btn-outline"
-            style="text-decoration: none; padding: 8px 16px; font-size: 13px"
-          >
-            🏠 Home
-          </a>
-          <a
-            href="admin.html"
-            class="btn-outline"
-            style="text-decoration: none; padding: 8px 16px; font-size: 13px"
-          >
-            ⚙️ Admin
-          </a>
-        </div>
+
+        <!-- TOMBOL HOME DIHAPUS! -->
+
         <div style="margin-top: 8px">
           <span class="online-indicator">
             <span class="online-dot online" id="statusDot"></span>
             <span id="statusText">Online</span>
+          </span>
+        </div>
+
+        <!-- Refresh Button -->
+        <div style="text-align: center; margin: 12px 0">
+          <button
+            onclick="forceRefresh()"
+            class="btn-outline"
+            style="padding: 8px 20px; font-size: 13px"
+          >
+            🔄 Refresh Data
+          </button>
+          <span
+            style="color: var(--text-muted); font-size: 12px; margin-left: 8px"
+          >
+            Terakhir update: <span id="lastUpdateTime">-</span>
           </span>
         </div>
       </header>
