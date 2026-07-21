@@ -3,7 +3,7 @@
 // ============================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCePR-6vvSW7nXSdccDsMcgxnkBuoP836I",
+  apiKey: "AIzaSyCpePR-6vvSW7nXSdccDsMcgxnkBu0P836I",
   authDomain: "ligawarga-9909e.firebaseapp.com",
   projectId: "ligawarga-9909e",
   storageBucket: "ligawarga-9909e.firebasestorage.app",
@@ -18,14 +18,6 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// 🔥 MATIKAN OFFLINE PERSISTENCE DULU (COMMENT INI)
-// db.enablePersistence({ synchronizeTabs: true })
-//   .then(() => {
-//     console.log('✅ Offline persistence enabled!');
-//   })
-//   .catch((err) => {
-//     console.log('⚠️ Persistence error:', err);
-//   });
-
 console.log("🔥 Firebase initialized!");
 console.log("📁 Project:", firebaseConfig.projectId);
+console.log("👤 Auth:", auth.currentUser ? "Logged in" : "Not logged in");
