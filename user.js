@@ -1,8 +1,9 @@
 // ============================================
-// USER.JS - PUBLIC VIEW (REAL-TIME FIXED)
+// USER.JS - PUBLIC VIEW (DEBUG VERSION)
 // ============================================
 
 console.log("👀 user.js loaded!");
+console.log("📍 Current URL:", window.location.href);
 
 // ============================================
 // STATE
@@ -15,6 +16,7 @@ let groupCurrentRound = {};
 let groupCurrentMatch = {};
 let groupTeamStats = {};
 let groupMatchResults = {};
+let isListenerActive = false;
 
 // ============================================
 // DOM REFS
@@ -32,58 +34,124 @@ const statusText = document.getElementById("statusText");
 const standingInfo = document.getElementById("standingInfo");
 
 // ============================================
+// CEK KONEKSI FIREBASE
+// ============================================
+function checkFirebase() {
+  console.log("🔍 Checking Firebase...");
+
+  // Cek firebase
+  if (typeof firebase === "undefined") {
+    console.error("❌ firebase is undefined!");
+    return false;
+  }
+  console.log("✅ firebase loaded");
+
+  // Cek firebaseConfig
+  if (typeof firebaseConfig === "undefined") {
+    console.error("❌ firebaseConfig is undefined!");
+    return false;
+  }
+  console.log("✅ firebaseConfig loaded:", firebaseConfig);
+
+  // Cek db
+  if (typeof db === "undefined") {
+    console.error("❌ db is undefined!");
+    return false;
+  }
+  console.log("✅ db loaded");
+
+  // Cek auth
+  if (typeof auth === "undefined") {
+    console.error("❌ auth is undefined!");
+    return false;
+  }
+  console.log("✅ auth loaded");
+
+  return true;
+}
+
+// ============================================
 // LOAD DATA WITH REAL-TIME LISTENER
 // ============================================
 function loadData() {
-  console.log("📥 Loading user data with real-time listener...");
+  console.log("📥 Loading user data...");
 
-  // Set status
+  // Cek Firebase dulu
+  if (!checkFirebase()) {
+    console.error("❌ Firebase not ready!");
+    if (statusDot) statusDot.className = "online-dot offline";
+    if (statusText) statusText.textContent = "⚠️ Firebase Error";
+    showToast("⚠️ Firebase tidak terhubung!", "error");
+    return;
+  }
+
+  // Set status loading
   if (statusDot) statusDot.className = "online-dot online";
   if (statusText) statusText.textContent = "🔄 Loading...";
 
-  // REAL-TIME LISTENER - Auto update!
-  db.collection("groups")
-    .doc("data")
-    .onSnapshot(
-      (doc) => {
-        console.log("🔄 Real-time update received!");
+  // === REAL-TIME LISTENER ===
+  console.log("📡 Setting up real-time listener...");
+  console.log("📁 Path: groups/data");
 
-        if (doc.exists) {
-          const data = doc.data();
-          console.log("📄 Data loaded:", data);
+  try {
+    const unsubscribe = db
+      .collection("groups")
+      .doc("data")
+      .onSnapshot(
+        (doc) => {
+          console.log("🔄 REAL-TIME UPDATE RECEIVED!");
+          console.log("📄 Doc exists:", doc.exists);
 
-          // Update semua state
-          groups = data.groups || [];
-          groupTeams = data.groupTeams || {};
-          groupMatches = data.groupMatches || {};
-          groupCurrentRound = data.groupCurrentRound || {};
-          groupCurrentMatch = data.groupCurrentMatch || {};
-          groupTeamStats = data.groupTeamStats || {};
-          groupMatchResults = data.groupMatchResults || {};
-          currentGroupIndex = data.currentGroupIndex || 0;
+          if (doc.exists) {
+            const data = doc.data();
+            console.log("📊 Data:", data);
+            console.log("📋 Groups:", data.groups);
+            console.log("📋 GroupTeams:", data.groupTeams);
 
-          // Update UI
-          updateAll();
+            // Update semua state
+            groups = data.groups || [];
+            groupTeams = data.groupTeams || {};
+            groupMatches = data.groupMatches || {};
+            groupCurrentRound = data.groupCurrentRound || {};
+            groupCurrentMatch = data.groupCurrentMatch || {};
+            groupTeamStats = data.groupTeamStats || {};
+            groupMatchResults = data.groupMatchResults || {};
+            currentGroupIndex = data.currentGroupIndex || 0;
 
-          // Update status
-          if (statusDot) statusDot.className = "online-dot online";
-          if (statusText) statusText.textContent = "✅ Online";
+            // Update UI
+            updateAll();
 
-          console.log("✅ UI updated!", groups.length, "groups");
-        } else {
-          console.log("📝 No data yet");
-          if (statusDot) statusDot.className = "online-dot online";
-          if (statusText) statusText.textContent = "⏳ Belum ada data";
-          updateAll();
-        }
-      },
-      (error) => {
-        console.error("❌ Listener error:", error);
-        if (statusDot) statusDot.className = "online-dot offline";
-        if (statusText) statusText.textContent = "⚠️ Offline";
-        showToast("⚠️ Gagal terhubung ke server", "error");
-      },
-    );
+            // Update status
+            if (statusDot) statusDot.className = "online-dot online";
+            if (statusText) statusText.textContent = "✅ Online";
+
+            console.log("✅ UI Updated! Groups:", groups.length);
+          } else {
+            console.warn("⚠️ Document does not exist!");
+            if (statusDot) statusDot.className = "online-dot online";
+            if (statusText) statusText.textContent = "⏳ Belum ada data";
+            updateAll();
+          }
+        },
+        (error) => {
+          console.error("❌ LISTENER ERROR:", error);
+          console.error("❌ Error code:", error.code);
+          console.error("❌ Error message:", error.message);
+
+          if (statusDot) statusDot.className = "online-dot offline";
+          if (statusText) statusText.textContent = "⚠️ Offline";
+          showToast("⚠️ Gagal terhubung ke server: " + error.message, "error");
+        },
+      );
+
+    isListenerActive = true;
+    console.log("✅ Listener active!");
+  } catch (error) {
+    console.error("❌ Error setting up listener:", error);
+    if (statusDot) statusDot.className = "online-dot offline";
+    if (statusText) statusText.textContent = "⚠️ Error";
+    showToast("⚠️ Error: " + error.message, "error");
+  }
 }
 
 // ============================================
@@ -104,6 +172,7 @@ function getCurrentGroupName() {
 // UPDATE ALL UI
 // ============================================
 function updateAll() {
+  console.log("🔄 Updating all UI...");
   updateGroupTabs();
   updateStandings();
   updateFixture();
@@ -127,11 +196,11 @@ function updateGroupTabs() {
     const isActive = index === currentGroupIndex;
     const teamCount = groupTeams[name]?.length || 0;
     html += `
-                    <div class="group-tab ${isActive ? "active" : ""}" onclick="switchGroup(${index})">
-                        <span>${name}</span>
-                        <span class="tab-badge">${teamCount} tim</span>
-                    </div>
-                `;
+            <div class="group-tab ${isActive ? "active" : ""}" onclick="switchGroup(${index})">
+                <span>${name}</span>
+                <span class="tab-badge">${teamCount} tim</span>
+            </div>
+        `;
   });
   groupTabs.innerHTML = html;
 }
@@ -189,17 +258,17 @@ function updateStandings() {
     const gd = team.gf - team.ga;
     const row = document.createElement("tr");
     row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td><strong>${team.name}</strong></td>
-                    <td>${team.played}</td>
-                    <td>${team.win}</td>
-                    <td>${team.draw}</td>
-                    <td>${team.loss}</td>
-                    <td>${team.gf}</td>
-                    <td>${team.ga}</td>
-                    <td>${gd > 0 ? "+" : ""}${gd}</td>
-                    <td><strong>${team.points}</strong></td>
-                `;
+            <td>${index + 1}</td>
+            <td><strong>${team.name}</strong></td>
+            <td>${team.played}</td>
+            <td>${team.win}</td>
+            <td>${team.draw}</td>
+            <td>${team.loss}</td>
+            <td>${team.gf}</td>
+            <td>${team.ga}</td>
+            <td>${gd > 0 ? "+" : ""}${gd}</td>
+            <td><strong>${team.points}</strong></td>
+        `;
     standingsBody.appendChild(row);
   });
 
@@ -223,12 +292,12 @@ function updateFixture() {
     groupTeams[groupName].length === 0
   ) {
     fixtureArea.innerHTML = `
-                    <div class="empty-state">
-                        <span class="empty-icon">📅</span>
-                        <h3>Belum ada jadwal</h3>
-                        <p>Pilih grup yang sudah digenerate</p>
-                    </div>
-                `;
+            <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <h3>Belum ada jadwal</h3>
+                <p>Pilih grup yang sudah digenerate</p>
+            </div>
+        `;
     if (fixtureCount) fixtureCount.textContent = "0 match";
     return;
   }
@@ -236,12 +305,12 @@ function updateFixture() {
   const matches = groupMatches[groupName] || [];
   if (matches.length === 0) {
     fixtureArea.innerHTML = `
-                    <div class="empty-state">
-                        <span class="empty-icon">📅</span>
-                        <h3>Belum ada jadwal</h3>
-                        <p>Admin belum mengenerate liga</p>
-                    </div>
-                `;
+            <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <h3>Belum ada jadwal</h3>
+                <p>Admin belum mengenerate liga</p>
+            </div>
+        `;
     if (fixtureCount) fixtureCount.textContent = "0 match";
     return;
   }
@@ -261,11 +330,11 @@ function updateFixture() {
 
     html += `<div class="fixture-round">`;
     html += `
-                    <div class="fixture-round-title">
-                        <span>${isPastRound ? "✅" : isCurrentRound ? "▶️" : "📅"} Putaran ${roundIdx + 1}</span>
-                        <span>${round.length} match</span>
-                    </div>
-                `;
+            <div class="fixture-round-title">
+                <span>${isPastRound ? "✅" : isCurrentRound ? "▶️" : "📅"} Putaran ${roundIdx + 1}</span>
+                <span>${round.length} match</span>
+            </div>
+        `;
 
     round.forEach((match, matchIdx) => {
       const teamA = teamNames[match.home];
@@ -311,16 +380,16 @@ function updateFixture() {
           : "fixture-item upcoming";
 
       html += `
-                        <div class="${itemClass}">
-                            <div class="fixture-teams">
-                                <span>${teamA}</span>
-                                <span class="vs">vs</span>
-                                <span>${teamB}</span>
-                                <span class="fixture-status ${statusClass}">${statusTextStatus}</span>
-                            </div>
-                            <div class="fixture-score ${scoreClass}">${scoreText}</div>
-                        </div>
-                    `;
+                <div class="${itemClass}">
+                    <div class="fixture-teams">
+                        <span>${teamA}</span>
+                        <span class="vs">vs</span>
+                        <span>${teamB}</span>
+                        <span class="fixture-status ${statusClass}">${statusTextStatus}</span>
+                    </div>
+                    <div class="fixture-score ${scoreClass}">${scoreText}</div>
+                </div>
+            `;
     });
 
     html += `</div>`;
@@ -421,20 +490,19 @@ document.addEventListener("keydown", (e) => {
 // ============================================
 document.addEventListener("DOMContentLoaded", function () {
   console.log("🚀 user.js DOM loaded!");
+  console.log("📍 Domain:", window.location.hostname);
 
-  if (typeof firebaseConfig !== "undefined") {
-    console.log("✅ Firebase config loaded!");
-  } else {
-    console.error("❌ Firebase config NOT loaded!");
-  }
+  // Cek semua Firebase dependencies
+  console.log("🔍 Checking dependencies...");
+  console.log("  - firebase:", typeof firebase !== "undefined" ? "✅" : "❌");
+  console.log(
+    "  - firebaseConfig:",
+    typeof firebaseConfig !== "undefined" ? "✅" : "❌",
+  );
+  console.log("  - db:", typeof db !== "undefined" ? "✅" : "❌");
+  console.log("  - auth:", typeof auth !== "undefined" ? "✅" : "❌");
 
-  if (typeof db !== "undefined") {
-    console.log("✅ Firestore loaded!");
-  } else {
-    console.error("❌ Firestore NOT loaded!");
-  }
-
-  // Load data dengan real-time listener
+  // Load data
   loadData();
 
   console.log("👀 Liga Warga - User View");
