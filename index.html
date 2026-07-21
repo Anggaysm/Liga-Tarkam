@@ -6,7 +6,13 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>⚽ Manajemen Liga Pro - Multi Grup</title>
+    <title>⚽ Liga Warga</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <link rel="stylesheet" href="style.css" />
     <link
       rel="icon"
@@ -14,266 +20,158 @@
     />
   </head>
   <body>
-    <!-- ===== HEADER ===== -->
-    <header class="header">
-      <div class="container">
-        <h1>⚽ Manajemen Liga Pro</h1>
-        <p class="subtitle">Multi Grup • Kelola liga dengan mudah 🏆</p>
-      </div>
-    </header>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <h1>⚽ Liga Warga</h1>
+        <p class="subtitle">Multi Grup • Real-time • Online</p>
+      </header>
 
-    <!-- ===== MAIN CONTENT ===== -->
-    <main class="container">
-      <!-- Input Section -->
-      <div class="card card-input">
-        <div class="card-header">
-          <h2>📝 Kelola Grup & Tim</h2>
-          <span class="badge" id="groupCount">0 grup</span>
-        </div>
+      <!-- Main Content -->
+      <main>
+        <!-- Status Bar -->
+        <div
+          id="authStatus"
+          style="text-align: center; margin-bottom: 12px"
+        ></div>
 
-        <!-- Group Management -->
-        <div class="group-management">
-          <div class="group-input-row">
-            <input
-              type="text"
-              id="groupNameInput"
-              placeholder="Nama grup baru..."
-              class="input-text"
-            />
-            <button onclick="addGroup()" class="btn-primary">
-              ➕ Tambah Grup
+        <!-- Login Card -->
+        <div class="card login-card" id="loginCard">
+          <div class="card-header">
+            <h2>🔐 Login Admin</h2>
+          </div>
+
+          <div class="login-form">
+            <div class="form-group">
+              <label>📧 Email</label>
+              <input
+                type="email"
+                id="loginEmail"
+                placeholder="admin@ligawarga.com"
+                class="input-text"
+              />
+            </div>
+            <div class="form-group">
+              <label>🔑 Password</label>
+              <input
+                type="password"
+                id="loginPassword"
+                placeholder="••••••••"
+                class="input-text"
+              />
+            </div>
+            <button
+              onclick="login()"
+              class="btn-primary btn-lg"
+              style="width: 100%"
+            >
+              🚀 Login
             </button>
+            <div
+              id="loginError"
+              style="
+                color: #ef4444;
+                margin-top: 10px;
+                display: none;
+                text-align: center;
+              "
+            ></div>
           </div>
         </div>
 
-        <!-- Group Tabs -->
-        <div class="group-tabs" id="groupTabs"></div>
-
-        <!-- Teams Input per Group -->
-        <div id="groupTeamsContainer">
-          <div class="group-teams-input">
-            <div class="group-teams-header">
-              <h3 id="currentGroupLabel">📋 Tim di Grup</h3>
-              <span class="badge" id="groupTeamCount">0 tim</span>
-            </div>
-            <textarea
-              id="teamsInput"
-              placeholder="Masukkan nama tim...&#10;Contoh:&#10;Persija&#10;Persib&#10;Arema&#10;Bali United"
-            ></textarea>
-            <div class="input-actions">
-              <button onclick="updateGroupTeams()" class="btn-success">
-                💾 Update Tim Grup
-              </button>
-              <button onclick="loadExampleTeams()" class="btn-outline">
-                📋 Contoh Tim
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Generate All -->
-        <div class="generate-all-actions">
-          <button
-            onclick="generateAllGroups()"
-            class="btn-primary btn-lg"
-            style="flex: 2"
-          >
-            🚀 Generate Semua Liga
-          </button>
-          <button
-            onclick="generateCurrentGroup()"
-            class="btn-outline"
-            style="flex: 1"
-          >
-            ⚡ Generate Grup Ini
-          </button>
-        </div>
-        <div class="input-hint">
-          <small>💡 Setiap grup akan memiliki jadwal & klasemen sendiri</small>
-        </div>
-      </div>
-
-      <!-- Stats Overview -->
-      <div class="stats-grid" id="statsGrid" style="display: none">
-        <div class="stat-card">
-          <span class="stat-icon">🏟️</span>
-          <span class="stat-value" id="totalMatches">0</span>
-          <span class="stat-label">Total Match</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">⚽</span>
-          <span class="stat-value" id="totalGoals">0</span>
-          <span class="stat-label">Total Gol</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">📊</span>
-          <span class="stat-value" id="avgGoals">0.0</span>
-          <span class="stat-label">Rata-rata Gol</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">🏆</span>
-          <span class="stat-value" id="topScorer">-</span>
-          <span class="stat-label">Top Skor</span>
-        </div>
-      </div>
-
-      <!-- Main Grid - 3 columns -->
-      <div class="grid grid-3">
-        <!-- Standings -->
-        <div class="card card-standings">
+        <!-- Public Access -->
+        <div class="card public-card">
           <div class="card-header">
-            <h2>📊 Klasemen</h2>
-            <div class="card-actions">
-              <button
-                onclick="exportStandings()"
-                class="btn-icon"
-                title="Export Klasemen"
-              >
-                📥
-              </button>
-              <button
-                onclick="toggleSortMode()"
-                class="btn-icon"
-                title="Ubah Mode Sortir"
-              >
-                🔄
-              </button>
-            </div>
+            <h2>👀 Lihat Klasemen & Jadwal</h2>
           </div>
-          <div class="table-wrapper">
-            <table id="standingsTable">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Tim</th>
-                  <th title="Main">M</th>
-                  <th title="Menang">W</th>
-                  <th title="Seri">D</th>
-                  <th title="Kalah">L</th>
-                  <th title="Gol Masuk">GF</th>
-                  <th title="Gol Kemasukan">GA</th>
-                  <th title="Selisih Gol">SG</th>
-                  <th title="Poin">Pts</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <div class="table-footer">
-            <span class="text-muted" id="standingInfo">Belum ada data</span>
-          </div>
-        </div>
-
-        <!-- Match Area -->
-        <div class="card card-match">
-          <div class="card-header">
-            <h2>⚽ Pertandingan</h2>
-            <span class="badge" id="matchProgress">0%</span>
-          </div>
-          <div id="matchArea">
-            <div class="empty-state">
-              <span class="empty-icon">⚽</span>
-              <h3>Belum ada pertandingan</h3>
-              <p>Generate liga terlebih dahulu untuk memulai</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Fixture / Jadwal -->
-        <div class="card card-fixture">
-          <div class="card-header">
-            <h2>📅 Jadwal</h2>
-            <span class="badge" id="fixtureCount">0 match</span>
-          </div>
-          <div id="fixtureArea">
-            <div class="empty-state">
-              <span class="empty-icon">📅</span>
-              <h3>Belum ada jadwal</h3>
-              <p>Generate liga untuk melihat jadwal</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- History & Actions -->
-      <div class="card card-actions-bottom">
-        <div class="actions-row">
-          <button
-            onclick="undoLastMatch()"
-            class="btn-warning"
-            id="undoBtn"
-            disabled
+          <p
+            style="
+              color: var(--text-secondary);
+              text-align: center;
+              margin-bottom: 16px;
+            "
           >
-            ↩️ Undo (Ctrl+Z)
-          </button>
-          <button onclick="resetAll()" class="btn-danger">
-            🗑️ Reset Semua
-          </button>
-          <button onclick="showHelp()" class="btn-outline">❓ Bantuan</button>
+            Lihat klasemen dan jadwal pertandingan secara real-time tanpa login
+          </p>
+          <div
+            style="
+              display: flex;
+              gap: 10px;
+              justify-content: center;
+              flex-wrap: wrap;
+            "
+          >
+            <a
+              href="user.html"
+              class="btn-primary"
+              style="text-decoration: none; min-width: 150px"
+            >
+              📊 Lihat Klasemen
+            </a>
+            <a
+              href="admin.html"
+              class="btn-outline"
+              style="text-decoration: none; min-width: 150px"
+              id="adminLink"
+            >
+              ⚙️ Admin Panel
+            </a>
+          </div>
+          <div style="text-align: center; margin-top: 12px">
+            <small class="text-muted"
+              >💡 Admin: login dulu untuk akses panel</small
+            >
+          </div>
         </div>
-        <div class="history-info">
-          <small id="historyCount">History: 0 langkah</small>
-          <small id="autoSaveInfo">💾 Auto-save aktif</small>
-        </div>
-      </div>
-    </main>
 
-    <!-- ===== FOOTER ===== -->
-    <footer class="footer">
-      <div class="container">
-        <p><b>⚽ Manajemen Liga Pro</b> v3.0 - Multi Grup</p>
+        <!-- Quick Start -->
+        <div
+          class="card"
+          style="
+            background: rgba(16, 185, 129, 0.05);
+            border-color: rgba(16, 185, 129, 0.2);
+          "
+        >
+          <div class="card-header">
+            <h2>🚀 Quick Start</h2>
+          </div>
+          <ol
+            style="
+              color: var(--text-secondary);
+              padding-left: 20px;
+              font-size: 14px;
+              line-height: 2;
+            "
+          >
+            <li>
+              <strong>Login</strong> sebagai admin (admin@ligawarga.com /
+              Admin123!)
+            </li>
+            <li><strong>Tambah Grup</strong> (misal: Grup A, Grup B)</li>
+            <li>
+              <strong>Input Tim</strong> di setiap grup (minimal 2 tim per grup)
+            </li>
+            <li>
+              <strong>Generate Liga</strong> untuk membuat jadwal pertandingan
+            </li>
+            <li>
+              <strong>Update Skor</strong> dan lihat klasemen berubah otomatis!
+            </li>
+          </ol>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p><b>⚽ Liga Warga</b> v3.0 - Online</p>
         <p>Dibuat oleh <span class="highlight">Grup Tolongin 🚀</span></p>
         <p style="font-size: 12px; opacity: 0.6">
           © 2026 - All Rights Reserved
         </p>
-      </div>
-    </footer>
-
-    <!-- ===== MODAL HELP ===== -->
-    <div class="modal" id="helpModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>❓ Panduan Penggunaan</h2>
-          <button onclick="closeHelp()" class="btn-close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <h3>📝 Cara Menggunakan Multi Grup:</h3>
-          <ol>
-            <li>
-              <strong>Tambah Grup:</strong> Isi nama grup dan klik "Tambah Grup"
-            </li>
-            <li>
-              <strong>Pilih Grup:</strong> Klik tab grup yang ingin diedit
-            </li>
-            <li><strong>Input Tim:</strong> Tulis nama tim di grup tersebut</li>
-            <li>
-              <strong>Update Tim:</strong> Klik "Update Tim Grup" untuk
-              menyimpan
-            </li>
-            <li>
-              <strong>Generate:</strong> Klik "Generate Semua Liga" atau per
-              grup
-            </li>
-            <li>
-              <strong>Mainkan:</strong> Input skor dan submit seperti biasa
-            </li>
-          </ol>
-          <h3>🎯 Fitur:</h3>
-          <ul>
-            <li>✅ Multi grup dalam satu liga</li>
-            <li>✅ Masing-masing grup punya jadwal sendiri</li>
-            <li>✅ Auto-save ke localStorage</li>
-            <li>✅ Undo hingga 50 langkah</li>
-            <li>✅ Export klasemen</li>
-            <li>✅ Responsive untuk semua device</li>
-          </ul>
-        </div>
-        <div class="modal-footer">
-          <button onclick="closeHelp()" class="btn-primary">Tutup</button>
-        </div>
-      </div>
+      </footer>
     </div>
 
+    <script src="firebase-config.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

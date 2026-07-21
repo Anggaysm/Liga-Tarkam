@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>⚽ Liga Warga - Klasemen</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <h1>⚽ Liga Warga</h1>
+        <p class="subtitle">Live • Real-time • Update Otomatis</p>
+        <div class="header-actions">
+          <a
+            href="index.html"
+            class="btn-outline"
+            style="text-decoration: none; padding: 8px 16px; font-size: 13px"
+          >
+            🏠 Home
+          </a>
+          <a
+            href="admin.html"
+            class="btn-outline"
+            style="text-decoration: none; padding: 8px 16px; font-size: 13px"
+          >
+            ⚙️ Admin
+          </a>
+        </div>
+        <div style="margin-top: 8px">
+          <span class="online-indicator">
+            <span class="online-dot online" id="statusDot"></span>
+            <span id="statusText">Online</span>
+          </span>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main>
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <span class="stat-icon">🏟️</span>
+            <span class="stat-value" id="totalMatches">0</span>
+            <span class="stat-label">Total Match</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">⚽</span>
+            <span class="stat-value" id="totalGoals">0</span>
+            <span class="stat-label">Total Gol</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">📊</span>
+            <span class="stat-value" id="avgGoals">0.0</span>
+            <span class="stat-label">Rata-rata Gol</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">🏆</span>
+            <span class="stat-value" id="topScorer">-</span>
+            <span class="stat-label">Top Skor</span>
+          </div>
+        </div>
+
+        <!-- Group Tabs -->
+        <div class="group-tabs" id="groupTabs"></div>
+
+        <!-- Grid -->
+        <div class="grid grid-2">
+          <!-- Standings -->
+          <div class="card card-standings">
+            <div class="card-header">
+              <h2>📊 Klasemen</h2>
+              <span class="badge" id="lastUpdated">Live</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="standingsTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tim</th>
+                    <th>M</th>
+                    <th>W</th>
+                    <th>D</th>
+                    <th>L</th>
+                    <th>GF</th>
+                    <th>GA</th>
+                    <th>SG</th>
+                    <th>Pts</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Fixture -->
+          <div class="card card-fixture">
+            <div class="card-header">
+              <h2>📅 Jadwal</h2>
+              <span class="badge" id="fixtureCount">0 match</span>
+            </div>
+            <div id="fixtureArea">
+              <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <h3>Belum ada jadwal</h3>
+                <p>Belum ada liga yang digenerate</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p><b>⚽ Liga Warga</b> • Real-time Update</p>
+        <p>Dibuat oleh <span class="highlight">Grup Tolongin 🚀</span></p>
+      </footer>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="user.js"></script>
+  </body>
+</html>
