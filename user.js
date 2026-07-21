@@ -1,6 +1,8 @@
 // ============================================
-// USER.JS - PUBLIC VIEW
+// USER.JS - PUBLIC VIEW (REAL-TIME FIXED)
 // ============================================
+
+console.log("👀 user.js loaded!");
 
 // ============================================
 // STATE
@@ -20,28 +22,37 @@ let groupMatchResults = {};
 const groupTabs = document.getElementById("groupTabs");
 const standingsBody = document.querySelector("#standingsTable tbody");
 const fixtureArea = document.getElementById("fixtureArea");
+const fixtureCount = document.getElementById("fixtureCount");
 const totalMatches = document.getElementById("totalMatches");
 const totalGoals = document.getElementById("totalGoals");
 const avgGoals = document.getElementById("avgGoals");
 const topScorer = document.getElementById("topScorer");
-const fixtureCount = document.getElementById("fixtureCount");
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
+const standingInfo = document.getElementById("standingInfo");
 
 // ============================================
-// LOAD DATA
+// LOAD DATA WITH REAL-TIME LISTENER
 // ============================================
 function loadData() {
-  // Set status loading
-  if (statusDot) statusDot.className = "online-dot online";
-  if (statusText) statusText.textContent = "Online";
+  console.log("📥 Loading user data with real-time listener...");
 
+  // Set status
+  if (statusDot) statusDot.className = "online-dot online";
+  if (statusText) statusText.textContent = "🔄 Loading...";
+
+  // REAL-TIME LISTENER - Auto update!
   db.collection("groups")
     .doc("data")
     .onSnapshot(
       (doc) => {
+        console.log("🔄 Real-time update received!");
+
         if (doc.exists) {
           const data = doc.data();
+          console.log("📄 Data loaded:", data);
+
+          // Update semua state
           groups = data.groups || [];
           groupTeams = data.groupTeams || {};
           groupMatches = data.groupMatches || {};
@@ -50,22 +61,47 @@ function loadData() {
           groupTeamStats = data.groupTeamStats || {};
           groupMatchResults = data.groupMatchResults || {};
           currentGroupIndex = data.currentGroupIndex || 0;
+
+          // Update UI
           updateAll();
+
+          // Update status
           if (statusDot) statusDot.className = "online-dot online";
-          if (statusText) statusText.textContent = "Online ✓";
+          if (statusText) statusText.textContent = "✅ Online";
+
+          console.log("✅ UI updated!", groups.length, "groups");
+        } else {
+          console.log("📝 No data yet");
+          if (statusDot) statusDot.className = "online-dot online";
+          if (statusText) statusText.textContent = "⏳ Belum ada data";
+          updateAll();
         }
       },
       (error) => {
-        console.error("Error loading data:", error);
+        console.error("❌ Listener error:", error);
         if (statusDot) statusDot.className = "online-dot offline";
-        if (statusText) statusText.textContent = "Offline (coba refresh)";
+        if (statusText) statusText.textContent = "⚠️ Offline";
         showToast("⚠️ Gagal terhubung ke server", "error");
       },
     );
 }
 
 // ============================================
-// UPDATE UI
+// SWITCH GROUP
+// ============================================
+function switchGroup(index) {
+  if (index < 0 || index >= groups.length) return;
+  currentGroupIndex = index;
+  updateAll();
+  console.log("📋 Switched to group:", getCurrentGroupName());
+}
+
+function getCurrentGroupName() {
+  return groups[currentGroupIndex] || null;
+}
+
+// ============================================
+// UPDATE ALL UI
 // ============================================
 function updateAll() {
   updateGroupTabs();
@@ -74,6 +110,9 @@ function updateAll() {
   updateStats();
 }
 
+// ============================================
+// UPDATE GROUP TABS
+// ============================================
 function updateGroupTabs() {
   if (!groupTabs) return;
 
@@ -97,22 +136,16 @@ function updateGroupTabs() {
   groupTabs.innerHTML = html;
 }
 
-function switchGroup(index) {
-  if (index < 0 || index >= groups.length) return;
-  currentGroupIndex = index;
-  updateAll();
-}
-
-function getCurrentGroupName() {
-  return groups[currentGroupIndex] || null;
-}
-
+// ============================================
+// UPDATE STANDINGS
+// ============================================
 function updateStandings() {
   if (!standingsBody) return;
   standingsBody.innerHTML = "";
 
   const groupName = getCurrentGroupName();
   if (!groupName) {
+    if (standingInfo) standingInfo.textContent = "Pilih grup terlebih dahulu";
     standingsBody.innerHTML =
       '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-muted);">Pilih grup terlebih dahulu</td></tr>';
     return;
@@ -120,11 +153,13 @@ function updateStandings() {
 
   const teamNames = groupTeams[groupName] || [];
   if (teamNames.length === 0) {
+    if (standingInfo) standingInfo.textContent = "Belum ada tim di grup ini";
     standingsBody.innerHTML =
       '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-muted);">Belum ada tim di grup ini</td></tr>';
     return;
   }
 
+  // Get stats dari Firebase
   const stats = groupTeamStats[groupName] || {};
   const teams = teamNames.map((name) => ({
     name,
@@ -139,6 +174,7 @@ function updateStandings() {
     }),
   }));
 
+  // Sortir klasemen
   const sorted = [...teams];
   sorted.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -148,6 +184,7 @@ function updateStandings() {
     return b.gf - a.gf;
   });
 
+  // Render tabel
   sorted.forEach((team, index) => {
     const gd = team.gf - team.ga;
     const row = document.createElement("tr");
@@ -165,8 +202,17 @@ function updateStandings() {
                 `;
     standingsBody.appendChild(row);
   });
+
+  // Update info
+  const totalMatchesPlayed = teams.reduce((sum, t) => sum + t.played, 0) / 2;
+  if (standingInfo) {
+    standingInfo.textContent = `${teamNames.length} tim | ${totalMatchesPlayed} pertandingan dimainkan`;
+  }
 }
 
+// ============================================
+// UPDATE FIXTURE / JADWAL
+// ============================================
 function updateFixture() {
   if (!fixtureArea) return;
 
@@ -180,7 +226,7 @@ function updateFixture() {
                     <div class="empty-state">
                         <span class="empty-icon">📅</span>
                         <h3>Belum ada jadwal</h3>
-                        <p>Generate liga untuk melihat jadwal</p>
+                        <p>Pilih grup yang sudah digenerate</p>
                     </div>
                 `;
     if (fixtureCount) fixtureCount.textContent = "0 match";
@@ -193,7 +239,7 @@ function updateFixture() {
                     <div class="empty-state">
                         <span class="empty-icon">📅</span>
                         <h3>Belum ada jadwal</h3>
-                        <p>Belum ada liga yang digenerate</p>
+                        <p>Admin belum mengenerate liga</p>
                     </div>
                 `;
     if (fixtureCount) fixtureCount.textContent = "0 match";
@@ -214,14 +260,17 @@ function updateFixture() {
     const isCurrentRound = roundIdx === currentRound;
 
     html += `<div class="fixture-round">`;
-    html += `<div class="fixture-round-title">
+    html += `
+                    <div class="fixture-round-title">
                         <span>${isPastRound ? "✅" : isCurrentRound ? "▶️" : "📅"} Putaran ${roundIdx + 1}</span>
                         <span>${round.length} match</span>
-                    </div>`;
+                    </div>
+                `;
 
     round.forEach((match, matchIdx) => {
       const teamA = teamNames[match.home];
       const teamB = teamNames[match.away];
+
       const isPlayed =
         roundIdx < currentRound ||
         (roundIdx === currentRound && matchIdx < currentMatch);
@@ -238,7 +287,7 @@ function updateFixture() {
 
       if (isPlayed || result) {
         statusClass = "played";
-        statusTextStatus = "Selesai";
+        statusTextStatus = "✅ Selesai";
         if (result) {
           scoreText = `${result.scoreA} - ${result.scoreB}`;
           scoreClass = "played";
@@ -248,7 +297,7 @@ function updateFixture() {
         playedCount++;
       } else if (isCurrent) {
         statusClass = "current";
-        statusTextStatus = "Sedang berlangsung";
+        statusTextStatus = "⚡ Sedang";
         scoreText = "vs";
         scoreClass = "upcoming";
       }
@@ -285,6 +334,9 @@ function updateFixture() {
   }
 }
 
+// ============================================
+// UPDATE STATS
+// ============================================
 function updateStats() {
   const groupName = getCurrentGroupName();
   if (
@@ -292,6 +344,10 @@ function updateStats() {
     !groupTeams[groupName] ||
     groupTeams[groupName].length === 0
   ) {
+    if (totalMatches) totalMatches.textContent = "0";
+    if (totalGoals) totalGoals.textContent = "0";
+    if (avgGoals) avgGoals.textContent = "0.0";
+    if (topScorer) topScorer.textContent = "-";
     return;
   }
 
@@ -346,10 +402,9 @@ function showToast(message, type = "info") {
 }
 
 // ============================================
-// KEYBOARD SHORTCUT
+// KEYBOARD SHORTCUTS
 // ============================================
 document.addEventListener("keydown", (e) => {
-  // Ctrl + left/right untuk pindah grup
   if (e.ctrlKey && e.key === "ArrowLeft") {
     e.preventDefault();
     if (currentGroupIndex > 0) switchGroup(currentGroupIndex - 1);
@@ -364,8 +419,24 @@ document.addEventListener("keydown", (e) => {
 // ============================================
 // INIT
 // ============================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
+  console.log("🚀 user.js DOM loaded!");
+
+  if (typeof firebaseConfig !== "undefined") {
+    console.log("✅ Firebase config loaded!");
+  } else {
+    console.error("❌ Firebase config NOT loaded!");
+  }
+
+  if (typeof db !== "undefined") {
+    console.log("✅ Firestore loaded!");
+  } else {
+    console.error("❌ Firestore NOT loaded!");
+  }
+
+  // Load data dengan real-time listener
   loadData();
+
   console.log("👀 Liga Warga - User View");
   console.log("📱 Dibuat oleh Grup Tolongin 🚀");
 });
