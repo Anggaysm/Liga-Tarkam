@@ -331,118 +331,93 @@ function loadExampleTeams() {
 }
 
 // ============================================
-// GENERATE MATCHES - DENGAN JEDA MINIMAL 1 MATCH
+// GENERATE MATCHES - DENGAN OPTIMASI
 // ============================================
+
 function generateMatchesForGroup(groupName) {
   const teams = groupTeams[groupName] || [];
   if (teams.length < 2) return false;
 
-  // Buat semua pasangan pertandingan
+  const teamNames = [...teams];
+  const n = teamNames.length;
+
+  // === BUAT SEMUA PASANGAN MATCH ===
   let allMatches = [];
-  for (let i = 0; i < teams.length; i++) {
-    for (let j = i + 1; j < teams.length; j++) {
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
       allMatches.push({ home: i, away: j });
     }
   }
 
-  // === ALGORITMA PENJADWALAN DENGAN JEDA ===
-  // Tujuan: tim ga boleh main 2 match berturut-turut
-
+  // === BUAT JADWAL DENGAN JEDA ===
   let scheduled = [];
-  let teamLastMatch = {}; // Catat kapan terakhir tim main
-
-  // Inisialisasi last match (semua -2 biar bisa main di awal)
-  for (let i = 0; i < teams.length; i++) {
-    teamLastMatch[i] = -2;
+  let teamLastMatch = {};
+  for (let i = 0; i < n; i++) {
+    teamLastMatch[i] = -3;
   }
 
-  // Loop sampai semua match terjadwal
-  let matchIndex = 0;
-  let maxAttempts = allMatches.length * 100;
+  let remainingMatches = allMatches.map((m, idx) => ({ ...m, idx }));
   let attempts = 0;
+  const maxAttempts = allMatches.length * 500;
 
-  while (scheduled.length < allMatches.length && attempts < maxAttempts) {
+  while (remainingMatches.length > 0 && attempts < maxAttempts) {
     attempts++;
+    const currentIdx = scheduled.length;
 
-    // Cari match yang available (timnya ga baru aja main)
-    let availableMatches = allMatches.filter((m) => {
-      // Cek apakah match ini sudah dijadwalkan
-      const alreadyScheduled = scheduled.some(
-        (s) =>
-          (s.home === m.home && s.away === m.away) ||
-          (s.home === m.away && s.away === m.home),
-      );
-      if (alreadyScheduled) return false;
-
-      // Cek kedua tim ga main di match sebelumnya
-      const homeLast = teamLastMatch[m.home] ?? -2;
-      const awayLast = teamLastMatch[m.away] ?? -2;
-      const currentMatchIndex = scheduled.length;
-
-      // Tim harus istirahat minimal 1 match
-      return (
-        currentMatchIndex - homeLast >= 1 && currentMatchIndex - awayLast >= 1
-      );
+    let available = remainingMatches.filter((m) => {
+      const homeLast = teamLastMatch[m.home] ?? -3;
+      const awayLast = teamLastMatch[m.away] ?? -3;
+      return currentIdx - homeLast >= 2 && currentIdx - awayLast >= 2;
     });
 
-    // Kalo ga ada match yang available, cari match yang salah satu timnya available
-    if (availableMatches.length === 0) {
-      availableMatches = allMatches.filter((m) => {
-        const alreadyScheduled = scheduled.some(
-          (s) =>
-            (s.home === m.home && s.away === m.away) ||
-            (s.home === m.away && s.away === m.home),
-        );
-        return !alreadyScheduled;
+    if (available.length === 0) {
+      available = remainingMatches.filter((m) => {
+        const homeLast = teamLastMatch[m.home] ?? -3;
+        const awayLast = teamLastMatch[m.away] ?? -3;
+        return currentIdx - homeLast >= 1 && currentIdx - awayLast >= 1;
       });
     }
 
-    // Kalo masih ga ada, berarti semua match udah terjadwal
-    if (availableMatches.length === 0) break;
+    if (available.length === 0) {
+      available = remainingMatches;
+    }
 
-    // Pilih match secara acak dari yang available
-    const randomIdx = Math.floor(Math.random() * availableMatches.length);
-    const selectedMatch = availableMatches[randomIdx];
+    const randomIdx = Math.floor(Math.random() * available.length);
+    const selected = available[randomIdx];
 
-    // Jadwalkan match
-    scheduled.push({ home: selectedMatch.home, away: selectedMatch.away });
+    scheduled.push({ home: selected.home, away: selected.away });
+    teamLastMatch[selected.home] = scheduled.length - 1;
+    teamLastMatch[selected.away] = scheduled.length - 1;
 
-    // Update last match tim
-    teamLastMatch[selectedMatch.home] = scheduled.length - 1;
-    teamLastMatch[selectedMatch.away] = scheduled.length - 1;
-
-    matchIndex++;
+    const remainingIdx = remainingMatches.findIndex(
+      (m) => m.idx === selected.idx,
+    );
+    if (remainingIdx !== -1) {
+      remainingMatches.splice(remainingIdx, 1);
+    }
   }
 
-  // Kalo masih ada match yang belum terjadwal (fallback)
-  if (scheduled.length < allMatches.length) {
-    console.warn("⚠️ Fallback: menjadwalkan sisa match tanpa jeda");
-    const remaining = allMatches.filter((m) => {
-      return !scheduled.some(
-        (s) =>
-          (s.home === m.home && s.away === m.away) ||
-          (s.home === m.away && s.away === m.home),
-      );
-    });
-    scheduled = scheduled.concat(remaining);
-  }
+  // === OPTIMASI JADWAL ===
+  // Tukar match yang berdekatan supaya ga ada tim yang main berturut-turut
+  scheduled = optimizeSchedule(scheduled, n);
 
-  // === BUAT ROUND (putaran) ===
-  // Bagi match menjadi beberapa putaran (maksimal 6 match per putaran)
+  // === BAGI KE DALAM PUTARAN ===
   const matches = {};
-  const totalRounds = Math.ceil(
-    scheduled.length / Math.min(6, scheduled.length),
-  );
-  const matchesPerRound = Math.ceil(scheduled.length / totalRounds);
-
   let matchIdx = 0;
-  for (let r = 0; r < totalRounds; r++) {
-    const roundKey = `round_${r}`;
+  let roundIdx = 0;
+  const matchesPerRound = Math.min(
+    6,
+    Math.ceil(scheduled.length / Math.ceil(scheduled.length / 6)),
+  );
+
+  while (matchIdx < scheduled.length) {
+    const roundKey = `round_${roundIdx}`;
     matches[roundKey] = [];
     for (let i = 0; i < matchesPerRound && matchIdx < scheduled.length; i++) {
       matches[roundKey].push(scheduled[matchIdx]);
       matchIdx++;
     }
+    roundIdx++;
   }
 
   groupMatches[groupName] = matches;
@@ -454,7 +429,6 @@ function generateMatchesForGroup(groupName) {
   groupMatchResults[groupName] = [];
 
   // Initialize stats
-  const teamNames = groupTeams[groupName] || [];
   teamNames.forEach((name) => {
     groupTeamStats[groupName][name] = {
       played: 0,
@@ -468,8 +442,11 @@ function generateMatchesForGroup(groupName) {
   });
 
   // Log hasil jadwal
-  console.log(`📋 Jadwal untuk ${groupName}:`);
-  Object.keys(matches).forEach((key) => {
+  console.log(
+    `📋 Jadwal untuk ${groupName} (${n} tim, ${scheduled.length} match):`,
+  );
+  const sortedKeys = Object.keys(matches).sort();
+  sortedKeys.forEach((key) => {
     const round = matches[key];
     console.log(`  ${key}: ${round.length} match`);
     round.forEach((m, idx) => {
@@ -481,6 +458,90 @@ function generateMatchesForGroup(groupName) {
 
   return true;
 }
+
+// ============================================
+// OPTIMASI JADWAL - TUKAR MATCH AGAR GA BERDEKATAN
+// ============================================
+function optimizeSchedule(schedule, numTeams) {
+  console.log("🔧 Optimasi jadwal...");
+
+  let improved = true;
+  let maxIterations = 1000;
+  let iteration = 0;
+
+  while (improved && iteration < maxIterations) {
+    improved = false;
+    iteration++;
+
+    // Cek setiap tim
+    for (let team = 0; team < numTeams; team++) {
+      // Cari posisi match tim ini
+      let positions = [];
+      schedule.forEach((match, idx) => {
+        if (match.home === team || match.away === team) {
+          positions.push(idx);
+        }
+      });
+
+      // Cek ada yang berdekatan (jarak <= 1)
+      for (let i = 0; i < positions.length - 1; i++) {
+        const gap = positions[i + 1] - positions[i];
+
+        if (gap <= 1) {
+          // Ada match berdekatan! Coba tuker dengan match lain
+          const matchIdx1 = positions[i];
+          const matchIdx2 = positions[i + 1];
+
+          // Cari match lain yang bisa ditukar
+          for (let j = 0; j < schedule.length; j++) {
+            if (j === matchIdx1 || j === matchIdx2) continue;
+
+            // Coba tuker matchIdx2 dengan j
+            const temp = schedule[matchIdx2];
+            schedule[matchIdx2] = schedule[j];
+            schedule[j] = temp;
+
+            // Cek apakah ini memperbaiki jadwal
+            let newPositions = [];
+            schedule.forEach((m, idx) => {
+              if (m.home === team || m.away === team) {
+                newPositions.push(idx);
+              }
+            });
+
+            // Cek apakah tim ini masih ada yang berdekatan
+            let stillBad = false;
+            for (let k = 0; k < newPositions.length - 1; k++) {
+              if (newPositions[k + 1] - newPositions[k] <= 1) {
+                stillBad = true;
+                break;
+              }
+            }
+
+            if (!stillBad) {
+              // Berhasil!
+              improved = true;
+              console.log(`✅ Tim ${team} diperbaiki`);
+              break;
+            } else {
+              // Kembalikan
+              const tempBack = schedule[matchIdx2];
+              schedule[matchIdx2] = schedule[j];
+              schedule[j] = tempBack;
+            }
+          }
+
+          if (improved) break;
+        }
+      }
+
+      if (improved) break;
+    }
+  }
+
+  return schedule;
+}
+
 function generateCurrentGroup() {
   const name = getCurrentGroupName();
   if (!name) {
