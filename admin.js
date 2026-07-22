@@ -331,35 +331,117 @@ function loadExampleTeams() {
 }
 
 // ============================================
-// GENERATE
+// GENERATE MATCHES - DENGAN JEDA MINIMAL 1 MATCH
 // ============================================
 function generateMatchesForGroup(groupName) {
   const teams = groupTeams[groupName] || [];
   if (teams.length < 2) return false;
 
-  const matches = {};
-  const totalRounds = 1;
+  // Buat semua pasangan pertandingan
+  let allMatches = [];
+  for (let i = 0; i < teams.length; i++) {
+    for (let j = i + 1; j < teams.length; j++) {
+      allMatches.push({ home: i, away: j });
+    }
+  }
 
+  // === ALGORITMA PENJADWALAN DENGAN JEDA ===
+  // Tujuan: tim ga boleh main 2 match berturut-turut
+
+  let scheduled = [];
+  let teamLastMatch = {}; // Catat kapan terakhir tim main
+
+  // Inisialisasi last match (semua -2 biar bisa main di awal)
+  for (let i = 0; i < teams.length; i++) {
+    teamLastMatch[i] = -2;
+  }
+
+  // Loop sampai semua match terjadwal
+  let matchIndex = 0;
+  let maxAttempts = allMatches.length * 100;
+  let attempts = 0;
+
+  while (scheduled.length < allMatches.length && attempts < maxAttempts) {
+    attempts++;
+
+    // Cari match yang available (timnya ga baru aja main)
+    let availableMatches = allMatches.filter((m) => {
+      // Cek apakah match ini sudah dijadwalkan
+      const alreadyScheduled = scheduled.some(
+        (s) =>
+          (s.home === m.home && s.away === m.away) ||
+          (s.home === m.away && s.away === m.home),
+      );
+      if (alreadyScheduled) return false;
+
+      // Cek kedua tim ga main di match sebelumnya
+      const homeLast = teamLastMatch[m.home] ?? -2;
+      const awayLast = teamLastMatch[m.away] ?? -2;
+      const currentMatchIndex = scheduled.length;
+
+      // Tim harus istirahat minimal 1 match
+      return (
+        currentMatchIndex - homeLast >= 1 && currentMatchIndex - awayLast >= 1
+      );
+    });
+
+    // Kalo ga ada match yang available, cari match yang salah satu timnya available
+    if (availableMatches.length === 0) {
+      availableMatches = allMatches.filter((m) => {
+        const alreadyScheduled = scheduled.some(
+          (s) =>
+            (s.home === m.home && s.away === m.away) ||
+            (s.home === m.away && s.away === m.home),
+        );
+        return !alreadyScheduled;
+      });
+    }
+
+    // Kalo masih ga ada, berarti semua match udah terjadwal
+    if (availableMatches.length === 0) break;
+
+    // Pilih match secara acak dari yang available
+    const randomIdx = Math.floor(Math.random() * availableMatches.length);
+    const selectedMatch = availableMatches[randomIdx];
+
+    // Jadwalkan match
+    scheduled.push({ home: selectedMatch.home, away: selectedMatch.away });
+
+    // Update last match tim
+    teamLastMatch[selectedMatch.home] = scheduled.length - 1;
+    teamLastMatch[selectedMatch.away] = scheduled.length - 1;
+
+    matchIndex++;
+  }
+
+  // Kalo masih ada match yang belum terjadwal (fallback)
+  if (scheduled.length < allMatches.length) {
+    console.warn("⚠️ Fallback: menjadwalkan sisa match tanpa jeda");
+    const remaining = allMatches.filter((m) => {
+      return !scheduled.some(
+        (s) =>
+          (s.home === m.home && s.away === m.away) ||
+          (s.home === m.away && s.away === m.home),
+      );
+    });
+    scheduled = scheduled.concat(remaining);
+  }
+
+  // === BUAT ROUND (putaran) ===
+  // Bagi match menjadi beberapa putaran (maksimal 6 match per putaran)
+  const matches = {};
+  const totalRounds = Math.ceil(
+    scheduled.length / Math.min(6, scheduled.length),
+  );
+  const matchesPerRound = Math.ceil(scheduled.length / totalRounds);
+
+  let matchIdx = 0;
   for (let r = 0; r < totalRounds; r++) {
     const roundKey = `round_${r}`;
     matches[roundKey] = [];
-
-    for (let i = 0; i < teams.length; i++) {
-      for (let j = i + 1; j < teams.length; j++) {
-        if (r === 0) {
-          matches[roundKey].push({ home: i, away: j });
-        } else {
-          matches[roundKey].push({ home: j, away: i });
-        }
-      }
-    }
-    // Shuffle
-    for (let i = matches[roundKey].length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [matches[roundKey][i], matches[roundKey][j]] = [
-        matches[roundKey][j],
-        matches[roundKey][i],
-      ];
+    for (let i = 0; i < matchesPerRound && matchIdx < scheduled.length; i++) {
+      matches[roundKey].push(scheduled[matchIdx]);
+      matchIdx++;
     }
   }
 
@@ -385,9 +467,20 @@ function generateMatchesForGroup(groupName) {
     };
   });
 
+  // Log hasil jadwal
+  console.log(`📋 Jadwal untuk ${groupName}:`);
+  Object.keys(matches).forEach((key) => {
+    const round = matches[key];
+    console.log(`  ${key}: ${round.length} match`);
+    round.forEach((m, idx) => {
+      console.log(
+        `    ${idx + 1}. ${teamNames[m.home]} vs ${teamNames[m.away]}`,
+      );
+    });
+  });
+
   return true;
 }
-
 function generateCurrentGroup() {
   const name = getCurrentGroupName();
   if (!name) {
