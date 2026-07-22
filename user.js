@@ -15,6 +15,7 @@ let groupCurrentRound = {};
 let groupCurrentMatch = {};
 let groupTeamStats = {};
 let groupMatchResults = {};
+let groupPlayers = {};
 
 // ============================================
 // DOM REFS
@@ -35,60 +36,38 @@ const standingInfo = document.getElementById("standingInfo");
 // LOAD DATA - PAKAI GET() AJA
 // ============================================
 function loadData() {
-  console.log("📥 Loading user data with get()...");
+  console.log("📥 Loading user data with real-time listener...");
 
   if (statusDot) statusDot.className = "online-dot online";
   if (statusText) statusText.textContent = "🔄 Loading...";
 
-  // === PAKAI get() ===
   db.collection("groups")
     .doc("data")
-    .get()
-    .then((doc) => {
-      console.log("📄 get() result - exists:", doc.exists);
-
-      if (doc.exists) {
-        const data = doc.data();
-        console.log(
-          "📊 FULL DATA FROM FIRESTORE:",
-          JSON.stringify(data, null, 2),
-        );
-
-        // === UPDATE ALL STATE ===
-        groups = data.groups || [];
-        groupTeams = data.groupTeams || {};
-        groupMatches = data.groupMatches || {};
-        groupCurrentRound = data.groupCurrentRound || {};
-        groupCurrentMatch = data.groupCurrentMatch || {};
-        groupTeamStats = data.groupTeamStats || {};
-        groupMatchResults = data.groupMatchResults || {};
-        currentGroupIndex = data.currentGroupIndex || 0;
-
-        console.log("📋 groups:", groups);
-        console.log("📋 groupTeams:", groupTeams);
-        console.log("📋 groupTeamStats:", groupTeamStats);
-        console.log("📋 GRUB A stats:", groupTeamStats["GRUB A"]);
-
-        // === UPDATE UI ===
-        updateAll();
-
-        if (statusDot) statusDot.className = "online-dot online";
-        if (statusText) statusText.textContent = "✅ Online";
-
-        showToast("✅ Data loaded!", "success");
-      } else {
-        console.warn("⚠️ No data!");
-        if (statusDot) statusDot.className = "online-dot online";
-        if (statusText) statusText.textContent = "⏳ Belum ada data";
-        updateAll();
-      }
-    })
-    .catch((error) => {
-      console.error("❌ Error:", error);
-      if (statusDot) statusDot.className = "online-dot offline";
-      if (statusText) statusText.textContent = "⚠️ Error";
-      showToast("⚠️ Gagal load data!", "error");
-    });
+    .onSnapshot(
+      (doc) => {
+        console.log("🔄 Real-time update received!");
+        if (doc.exists) {
+          const data = doc.data();
+          groups = data.groups || [];
+          groupTeams = data.groupTeams || {};
+          groupMatches = data.groupMatches || {};
+          groupCurrentRound = data.groupCurrentRound || {};
+          groupCurrentMatch = data.groupCurrentMatch || {};
+          groupTeamStats = data.groupTeamStats || {};
+          groupMatchResults = data.groupMatchResults || {};
+          groupPlayers = data.groupPlayers || {};
+          currentGroupIndex = data.currentGroupIndex || 0;
+          updateAll();
+          if (statusDot) statusDot.className = "online-dot online";
+          if (statusText) statusText.textContent = "✅ Online";
+        }
+      },
+      (error) => {
+        console.error("❌ Listener error:", error);
+        if (statusDot) statusDot.className = "online-dot offline";
+        if (statusText) statusText.textContent = "⚠️ Offline";
+      },
+    );
 }
 
 // ============================================
@@ -435,6 +414,131 @@ document.addEventListener("keydown", (e) => {
       switchGroup(currentGroupIndex + 1);
   }
 });
+
+// ============================================
+// TOP SCORER FUNCTIONS
+// ============================================
+
+// Update top scorer list
+function updateTopScorerList() {
+  const groupName = getCurrentGroupName();
+  const topScorerCard = document.getElementById("topScorerCard");
+  const topScorerList = document.getElementById("topScorerList");
+  const topScorerCount = document.getElementById("topScorerCount");
+
+  if (!topScorerCard || !topScorerList) return;
+
+  // Kalo ga ada grup atau data pemain, sembunyikan
+  if (!groupName || !groupPlayers[groupName]) {
+    topScorerCard.style.display = "none";
+    return;
+  }
+
+  // Kumpulkan semua pemain dari semua tim di grup ini
+  const allPlayers = [];
+  const teams = groupTeams[groupName] || [];
+
+  teams.forEach((team) => {
+    const players = groupPlayers[groupName]?.[team] || [];
+    players.forEach((player) => {
+      // Tampilkan semua pemain, termasuk yang 0 gol
+      allPlayers.push({
+        ...player,
+        team: team,
+      });
+    });
+  });
+
+  // Kalo ga ada pemain sama sekali
+  if (allPlayers.length === 0) {
+    topScorerCard.style.display = "none";
+    return;
+  }
+
+  // Sortir berdasarkan gol (terbanyak ke terkecil)
+  allPlayers.sort((a, b) => (b.goals || 0) - (a.goals || 0));
+
+  // Kalo semua gol 0, tampilkan pesan
+  const totalGoals = allPlayers.reduce((sum, p) => sum + (p.goals || 0), 0);
+  if (totalGoals === 0) {
+    topScorerCard.style.display = "block";
+    topScorerList.innerHTML = `
+            <div class="empty-state" style="padding:20px;">
+                <span class="empty-icon">⚽</span>
+                <h3>Belum ada gol</h3>
+                <p>Tunggu pertandingan selesai</p>
+            </div>
+        `;
+    if (topScorerCount) topScorerCount.textContent = "0 pemain";
+    return;
+  }
+
+  // Tampilkan top skor
+  topScorerCard.style.display = "block";
+  if (topScorerCount)
+    topScorerCount.textContent = `${allPlayers.length} pemain`;
+
+  let html = '<div class="top-scorer-list">';
+
+  // Tampilkan semua pemain yang punya gol > 0
+  const scorers = allPlayers.filter((p) => (p.goals || 0) > 0);
+
+  if (scorers.length === 0) {
+    html = `
+            <div class="empty-state" style="padding:20px;">
+                <span class="empty-icon">⚽</span>
+                <h3>Belum ada gol</h3>
+                <p>Tunggu pertandingan selesai</p>
+            </div>
+        `;
+    topScorerList.innerHTML = html;
+    return;
+  }
+
+  scorers.forEach((player, index) => {
+    let rankClass = "";
+    let rankIcon = "";
+    if (index === 0) {
+      rankClass = "gold";
+      rankIcon = "🥇";
+    } else if (index === 1) {
+      rankClass = "silver";
+      rankIcon = "🥈";
+    } else if (index === 2) {
+      rankClass = "bronze";
+      rankIcon = "🥉";
+    } else {
+      rankIcon = `${index + 1}.`;
+    }
+
+    const categoryClass = player.category.toLowerCase();
+    html += `
+            <div class="top-scorer-item">
+                <div class="rank ${rankClass}">${rankIcon}</div>
+                <div class="info">
+                    <span class="name">${player.name}</span>
+                    <span class="badge" style="font-size:11px; padding:2px 10px; border-radius:10px; background:rgba(255,255,255,0.06); color:var(--text-secondary);">
+                        ${player.team}
+                    </span>
+                    <span class="player-badge ${categoryClass}" style="font-size:10px; padding:2px 8px; border-radius:10px;">
+                        ${player.category} ${player.class}
+                    </span>
+                </div>
+                <div class="goals">⚽ ${player.goals}</div>
+            </div>
+        `;
+  });
+  html += "</div>";
+
+  topScorerList.innerHTML = html;
+}
+
+// Override updateAll user untuk include top scorer
+const originalUpdateAllUser = updateAll;
+updateAll = function () {
+  originalUpdateAllUser();
+  updateTopScorerList();
+};
 
 // ============================================
 // INIT

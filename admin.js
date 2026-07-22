@@ -17,6 +17,9 @@ let groupPreviousRank = {};
 let groupHistory = {};
 let groupTeamStats = {};
 let groupMatchResults = {};
+let groupPlayers = {};
+let groupGoalScorers = {};
+let selectedTeamForPlayer = "";
 
 // ============================================
 // DOM REFS
@@ -125,6 +128,8 @@ function loadData() {
         groupTeamStats = data.groupTeamStats || {};
         groupMatchResults = data.groupMatchResults || {};
         currentGroupIndex = data.currentGroupIndex || 0;
+        groupPlayers = data.groupPlayers || {};
+        groupGoalScorers = data.groupGoalScorers || {};
         console.log("✅ Data loaded:", groups.length, "groups");
         console.log("📊 GroupTeams:", groupTeams);
         console.log("📊 GroupTeamStats:", groupTeamStats);
@@ -140,6 +145,8 @@ function loadData() {
         groupTeamStats = {};
         groupMatchResults = {};
         currentGroupIndex = 0;
+        groupPlayers = {};
+        groupGoalScorers = {};
       }
       updateAll();
     })
@@ -155,6 +162,8 @@ function loadData() {
       groupTeamStats = {};
       groupMatchResults = {};
       currentGroupIndex = 0;
+      groupPlayers = {};
+      groupGoalScorers = {};
       updateAll();
       showToast("⚠️ Gagal memuat data!", "error");
     });
@@ -177,6 +186,8 @@ function loadData() {
           groupTeamStats = data.groupTeamStats || {};
           groupMatchResults = data.groupMatchResults || {};
           currentGroupIndex = data.currentGroupIndex || 0;
+          groupPlayers = data.groupPlayers || {};
+          groupGoalScorers = data.groupGoalScorers || {};
           updateAll();
         }
       },
@@ -201,6 +212,8 @@ function saveData() {
     groupHistory,
     groupTeamStats,
     groupMatchResults,
+    groupPlayers,
+    groupGoalScorers,
     currentGroupIndex,
     updatedAt: new Date().toISOString(),
   };
@@ -589,6 +602,9 @@ function generateAllGroups() {
 // ============================================
 // SUBMIT SCORE
 // ============================================
+// ============================================
+// SUBMIT SCORE - DENGAN PENCETAK GOL
+// ============================================
 function submitScore() {
   console.log("📝 submitScore called");
   const groupName = getCurrentGroupName();
@@ -607,6 +623,36 @@ function submitScore() {
 
   if (scoreA < 0 || scoreB < 0) {
     showToast("⚠️ Skor tidak boleh negatif!", "error");
+    return;
+  }
+
+  // ==========================================
+  // 🔥 AMBIL DATA PENCETAK GOL DARI INPUT
+  // ==========================================
+  const scorerInputs = document.querySelectorAll(".scorer-input");
+  const scorerData = [];
+  let totalCheckedGoals = 0;
+
+  scorerInputs.forEach((input) => {
+    const goals = parseInt(input.value) || 0;
+    if (goals > 0) {
+      totalCheckedGoals += goals;
+      scorerData.push({
+        playerId: input.dataset.playerId,
+        playerName: input.dataset.playerName,
+        team: input.dataset.team,
+        goals: goals,
+      });
+    }
+  });
+
+  // Validasi: jumlah gol dari checkbox harus sama dengan skor total
+  const totalScore = scoreA + scoreB;
+  if (totalCheckedGoals !== totalScore) {
+    showToast(
+      `⚠️ Jumlah gol dari pencetak (${totalCheckedGoals}) tidak sesuai dengan skor (${totalScore})!`,
+      "warning",
+    );
     return;
   }
 
@@ -644,6 +690,9 @@ function submitScore() {
   const teamA = teamNames[match.home];
   const teamB = teamNames[match.away];
 
+  // ==========================================
+  // UPDATE STATISTIK TIM
+  // ==========================================
   if (!groupTeamStats[groupName]) {
     groupTeamStats[groupName] = {};
     teamNames.forEach((name) => {
@@ -708,6 +757,49 @@ function submitScore() {
     statB.points += 1;
   }
 
+  // ==========================================
+  // 🔥 UPDATE GOL PEMAIN
+  // ==========================================
+  const goalsByTeam = {};
+  scorerData.forEach((s) => {
+    if (!goalsByTeam[s.team]) goalsByTeam[s.team] = [];
+    goalsByTeam[s.team].push(s);
+  });
+
+  Object.keys(goalsByTeam).forEach((team) => {
+    const players = groupPlayers[groupName]?.[team] || [];
+    goalsByTeam[team].forEach((scorer) => {
+      const player = players.find((p) => p.id === scorer.playerId);
+      if (player) {
+        player.goals = (player.goals || 0) + scorer.goals; // 🔥 PAKE scorer.goals!
+        console.log(
+          `⚽ ${scorer.playerName} (${team}) mencetak ${scorer.goals} gol! Total: ${player.goals}`,
+        );
+      }
+    });
+  });
+
+  // ==========================================
+  // 🔥 SIMPAN DATA GOL KE GROUPGOALSCORERS
+  // ==========================================
+  if (!groupGoalScorers[groupName]) groupGoalScorers[groupName] = [];
+
+  const matchRecord = {
+    matchId: groupMatchResults[groupName]?.length || 0,
+    round: currentRound,
+    matchIndex: currentMatch,
+    scorers: scorerData.map((s) => ({
+      playerId: s.playerId,
+      playerName: s.playerName,
+      team: s.team,
+      goals: s.goals, // 🔥 PAKE s.goals!
+    })),
+  };
+  groupGoalScorers[groupName].push(matchRecord);
+
+  // ==========================================
+  // SIMPAN HASIL MATCH
+  // ==========================================
   if (!groupMatchResults[groupName]) groupMatchResults[groupName] = [];
   groupMatchResults[groupName].push({
     round: currentRound,
@@ -723,6 +815,7 @@ function submitScore() {
 
   updateAll();
   saveData();
+  savePlayerData(); // 🔥 SAVE DATA PEMAIN JUGA!
   showToast(`✅ ${teamA} ${scoreA} - ${scoreB} ${teamB}`, "success");
 }
 
@@ -893,6 +986,7 @@ function updateAll() {
   updateGroupCount();
   updateHistoryUI();
   updateUndoBtn();
+  loadPlayerData();
 }
 
 function updateGroupTabs() {
@@ -1099,6 +1193,66 @@ function updateMatch() {
   const teamB = teamNames[match.away];
   const totalRounds = roundKeys.length;
 
+  // 🔥 AMBIL DATA PEMAIN UNTUK KEDUA TIM
+  const playersA = groupPlayers[groupName]?.[teamA] || [];
+  const playersB = groupPlayers[groupName]?.[teamB] || [];
+
+  // 🔥 BUAT HTML UNTUK INPUT JUMLAH GOL PER PEMAIN
+  let scorersHTML = "";
+
+  if (playersA.length > 0 || playersB.length > 0) {
+    scorersHTML = `
+            <div style="margin-top: 12px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: left;">
+                <p style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">📝 Pencetak Gol (isi jumlah gol per pemain):</p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div>
+                        <p style="font-size: 12px; font-weight: 600; color: #38bdf8; margin-bottom: 4px;">${teamA} (skor: <span id="scoreADisplay">0</span> gol):</p>
+                        ${playersA
+                          .map(
+                            (p) => `
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; flex-wrap: wrap;">
+                                <span style="min-width: 100px;">${p.name}</span>
+                                <span style="font-size: 11px; color: var(--text-muted); min-width: 55px;">(${p.category} ${p.class})</span>
+                                <span style="font-size: 11px; color: var(--text-muted);">⚽</span>
+                                <input type="number" class="scorer-input" data-team="${teamA}" data-player-id="${p.id}" data-player-name="${p.name}" 
+                                       value="0" min="0" max="10" style="width: 50px; padding: 4px 6px; background: var(--bg-input); border: 1.5px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px; text-align: center;" 
+                                       oninput="updateScorerTotals()">
+                                <span style="font-size: 11px; color: var(--text-muted);">gol</span>
+                            </div>
+                        `,
+                          )
+                          .join("")}
+                        ${playersA.length === 0 ? '<p style="font-size: 12px; color: var(--text-muted);">Belum ada pemain di tim ini</p>' : ""}
+                    </div>
+                    <div>
+                        <p style="font-size: 12px; font-weight: 600; color: #fbbf24; margin-bottom: 4px;">${teamB} (skor: <span id="scoreBDisplay">0</span> gol):</p>
+                        ${playersB
+                          .map(
+                            (p) => `
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; flex-wrap: wrap;">
+                                <span style="min-width: 100px;">${p.name}</span>
+                                <span style="font-size: 11px; color: var(--text-muted); min-width: 55px;">(${p.category} ${p.class})</span>
+                                <span style="font-size: 11px; color: var(--text-muted);">⚽</span>
+                                <input type="number" class="scorer-input" data-team="${teamB}" data-player-id="${p.id}" data-player-name="${p.name}" 
+                                       value="0" min="0" max="10" style="width: 50px; padding: 4px 6px; background: var(--bg-input); border: 1.5px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px; text-align: center;" 
+                                       oninput="updateScorerTotals()">
+                                <span style="font-size: 11px; color: var(--text-muted);">gol</span>
+                            </div>
+                        `,
+                          )
+                          .join("")}
+                        ${playersB.length === 0 ? '<p style="font-size: 12px; color: var(--text-muted);">Belum ada pemain di tim ini</p>' : ""}
+                    </div>
+                </div>
+                <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); display: flex; gap: 16px; flex-wrap: wrap;">
+                    <span>✅ Total gol: <strong id="totalCheckedGoals">0</strong></span>
+                    <span>📊 Skor total: <strong id="totalScoreDisplay">0</strong></span>
+                    <span id="scoreMatchStatus" style="color: #fbbf24;">⚠️ Jumlah gol belum sama dengan skor</span>
+                </div>
+            </div>
+        `;
+  }
+
   let totalMatchesCount = 0;
   roundKeys.forEach((key) => {
     totalMatchesCount += matchesObj[key].length;
@@ -1124,10 +1278,13 @@ function updateMatch() {
                 ${teamA} <span class="vs">vs</span> ${teamB}
             </div>
             <div class="match-inputs">
-                <input type="number" id="scoreA" value="0" min="0" max="99">
+                <input type="number" id="scoreA" value="0" min="0" max="99" oninput="updateScorerTotals()">
                 <span class="vs-text">⚽</span>
-                <input type="number" id="scoreB" value="0" min="0" max="99">
+                <input type="number" id="scoreB" value="0" min="0" max="99" oninput="updateScorerTotals()">
             </div>
+            
+            ${scorersHTML}
+            
             <div class="match-actions">
                 <button onclick="submitScore()" class="btn-success">✅ Submit</button>
                 <button onclick="quickDraw()" class="btn-primary">🤝 Draw 0-0</button>
@@ -1139,6 +1296,97 @@ function updateMatch() {
     `;
 
   if (matchProgress) matchProgress.textContent = `${progress}%`;
+}
+
+// ============================================
+// UPDATE SCORER TOTALS - HITUNG TOTAL GOL DARI INPUT
+// ============================================
+function updateScorerTotals() {
+  const scoreA = parseInt(document.getElementById("scoreA")?.value) || 0;
+  const scoreB = parseInt(document.getElementById("scoreB")?.value) || 0;
+  const totalScore = scoreA + scoreB;
+
+  // Update display skor
+  const scoreADisplay = document.getElementById("scoreADisplay");
+  const scoreBDisplay = document.getElementById("scoreBDisplay");
+  if (scoreADisplay) scoreADisplay.textContent = scoreA;
+  if (scoreBDisplay) scoreBDisplay.textContent = scoreB;
+
+  // Hitung total gol dari semua input
+  const inputs = document.querySelectorAll(".scorer-input");
+  let totalGoals = 0;
+  inputs.forEach((input) => {
+    const val = parseInt(input.value) || 0;
+    if (val > 0) totalGoals += val;
+  });
+
+  // Update display total
+  const totalCheckedGoals = document.getElementById("totalCheckedGoals");
+  const totalScoreDisplay = document.getElementById("totalScoreDisplay");
+  const scoreMatchStatus = document.getElementById("scoreMatchStatus");
+
+  if (totalCheckedGoals) totalCheckedGoals.textContent = totalGoals;
+  if (totalScoreDisplay) totalScoreDisplay.textContent = totalScore;
+
+  // Cek apakah total gol sama dengan skor
+  if (scoreMatchStatus) {
+    if (totalGoals === totalScore) {
+      scoreMatchStatus.innerHTML = "✅ Jumlah gol sudah sesuai dengan skor!";
+      scoreMatchStatus.style.color = "#10b981";
+    } else if (totalGoals > totalScore) {
+      scoreMatchStatus.innerHTML = `⚠️ Total gol (${totalGoals}) melebihi skor (${totalScore})! Kurangi beberapa gol.`;
+      scoreMatchStatus.style.color = "#ef4444";
+    } else {
+      scoreMatchStatus.innerHTML = `⚠️ Jumlah gol (${totalGoals}) belum sama dengan skor (${totalScore})! Tambahkan gol.`;
+      scoreMatchStatus.style.color = "#fbbf24";
+    }
+  }
+}
+
+// ============================================
+// ON TEAM CHANGE - DIPANGGIL DARI DROPDOWN
+// ============================================
+function onTeamChange() {
+  const teamSelector = document.getElementById("teamSelector");
+  if (!teamSelector) return;
+
+  selectedTeamForPlayer = teamSelector.value;
+
+  const teamSelectorBadge = document.getElementById("teamSelectorBadge");
+  if (teamSelectorBadge) {
+    teamSelectorBadge.textContent = `Tim: ${selectedTeamForPlayer || "-"}`;
+  }
+
+  updatePlayerUI();
+}
+// ============================================
+// UPDATE CLASS OPTIONS - DINAMIS SESUAI KATEGORI
+// ============================================
+function updateClassOptions() {
+  const categorySelect = document.getElementById("playerCategoryInput");
+  const classSelect = document.getElementById("playerClassInput");
+
+  if (!categorySelect || !classSelect) return;
+
+  const category = categorySelect.value;
+
+  // Kosongkan dropdown kelas
+  classSelect.innerHTML = "";
+
+  let classes = [];
+  if (category === "SD") {
+    classes = ["4", "5", "6"];
+  } else if (category === "SMP") {
+    classes = ["7", "8", "9"];
+  }
+
+  // Tambahkan option ke dropdown kelas
+  classes.forEach((cls) => {
+    const option = document.createElement("option");
+    option.value = cls;
+    option.textContent = cls;
+    classSelect.appendChild(option);
+  });
 }
 
 function updateFixture() {
@@ -1324,6 +1572,242 @@ function updateUndoBtn() {
     undoBtn.disabled = count === 0;
     undoBtn.style.opacity = count === 0 ? "0.5" : "1";
   }
+}
+
+// ============================================
+// PLAYER MANAGEMENT FUNCTIONS
+// ============================================
+
+// Load player data dari Firestore
+function loadPlayerData() {
+  console.log("👥 Loading player data...");
+
+  // Ambil nama grup yang sedang dipilih
+  const groupName = getCurrentGroupName();
+  if (!groupName) {
+    // Kalo ga ada grup, sembunyikan section pemain
+    const playerManagement = document.getElementById("playerManagement");
+    if (playerManagement) playerManagement.style.display = "none";
+    return;
+  }
+
+  // Ambil daftar tim di grup ini
+  const teams = groupTeams[groupName] || [];
+  if (teams.length === 0) {
+    const playerManagement = document.getElementById("playerManagement");
+    if (playerManagement) playerManagement.style.display = "none";
+    return;
+  }
+
+  // Tampilkan section pemain
+  const playerManagement = document.getElementById("playerManagement");
+  if (playerManagement) playerManagement.style.display = "block";
+
+  // Update dropdown pilih tim
+  updateTeamSelector(teams);
+
+  // Set default tim (pilih tim pertama)
+  if (!selectedTeamForPlayer || !teams.includes(selectedTeamForPlayer)) {
+    selectedTeamForPlayer = teams[0];
+  }
+
+  // Set value di dropdown
+  const teamSelector = document.getElementById("teamSelector");
+  const teamSelectorBadge = document.getElementById("teamSelectorBadge");
+  if (teamSelector) teamSelector.value = selectedTeamForPlayer;
+  if (teamSelectorBadge)
+    teamSelectorBadge.textContent = `Tim: ${selectedTeamForPlayer}`;
+
+  // Render daftar pemain
+  updatePlayerUI();
+  updateClassOptions();
+}
+
+function updateTeamSelector(teams) {
+  const teamSelector = document.getElementById("teamSelector");
+  if (!teamSelector) return;
+
+  // Kosongkan dropdown
+  teamSelector.innerHTML = '<option value="">-- Pilih Tim --</option>';
+
+  // Tambahkan option untuk setiap tim
+  teams.forEach((team) => {
+    const option = document.createElement("option");
+    option.value = team;
+    option.textContent = team;
+    teamSelector.appendChild(option);
+  });
+}
+
+// Update daftar pemain di UI
+function updatePlayerUI() {
+  const groupName = getCurrentGroupName();
+  const teamName = selectedTeamForPlayer || getCurrentTeamName();
+  const playerList = document.getElementById("playerList");
+  const playerCount = document.getElementById("playerCount");
+
+  // Kalo ga ada grup atau tim, kosongkan
+  if (
+    !groupName ||
+    !teamName ||
+    !groupPlayers[groupName] ||
+    !groupPlayers[groupName][teamName]
+  ) {
+    if (playerCount) playerCount.textContent = "0 pemain";
+    if (playerList) {
+      playerList.innerHTML = `
+                <div class="empty-state" style="padding:20px;">
+                    <span class="empty-icon">👤</span>
+                    <h3>Belum ada pemain</h3>
+                    <p>Tambah pemain untuk tim ini</p>
+                </div>
+            `;
+    }
+    return;
+  }
+
+  // Ambil daftar pemain dari tim yang dipilih
+  const players = groupPlayers[groupName][teamName] || [];
+  if (playerCount) playerCount.textContent = `${players.length} pemain`;
+
+  // Kalo ga ada pemain
+  if (players.length === 0) {
+    playerList.innerHTML = `
+            <div class="empty-state" style="padding:20px;">
+                <span class="empty-icon">👤</span>
+                <h3>Belum ada pemain</h3>
+                <p>Tambah pemain untuk tim ini</p>
+            </div>
+        `;
+    return;
+  }
+
+  // Render daftar pemain
+  let html = "";
+  players.forEach((player, index) => {
+    const categoryClass = player.category.toLowerCase();
+    html += `
+            <div class="player-item">
+                <div class="player-info">
+                    <span style="color:var(--text-muted); font-size:12px; min-width:25px;">${index + 1}.</span>
+                    <span class="player-name">${player.name}</span>
+                    <span class="player-badge ${categoryClass}">${player.category}</span>
+                    <span style="font-size:12px; color:var(--text-muted);">Kelas ${player.class}</span>
+                    <span class="player-goals">⚽ <strong>${player.goals || 0}</strong> gol</span>
+                </div>
+                <button class="player-delete" onclick="deletePlayer('${player.id}')" title="Hapus pemain">✕</button>
+            </div>
+        `;
+  });
+
+  playerList.innerHTML = html;
+}
+
+// Helper: ambil nama tim pertama dari grup
+function getCurrentTeamName() {
+  const groupName = getCurrentGroupName();
+  if (!groupName) return null;
+  const teams = groupTeams[groupName] || [];
+  if (teams.length === 0) return null;
+  return teams[0];
+}
+
+function addPlayer() {
+  const groupName = getCurrentGroupName();
+  const teamName = selectedTeamForPlayer || getCurrentTeamName();
+
+  // Validasi
+  if (!groupName || !teamName) {
+    showToast("⚠️ Pilih grup dan tim terlebih dahulu!", "warning");
+    return;
+  }
+
+  // Ambil nilai dari form
+  const nameInput = document.getElementById("playerNameInput");
+  const categoryInput = document.getElementById("playerCategoryInput");
+  const classInput = document.getElementById("playerClassInput");
+
+  const name = nameInput.value.trim();
+  const category = categoryInput.value;
+  const classVal = classInput.value;
+
+  // Validasi nama
+  if (!name) {
+    showToast("⚠️ Masukkan nama pemain!", "warning");
+    nameInput.focus();
+    return;
+  }
+
+  // Generate ID unik
+  const id = `p_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+  // Inisialisasi struktur data
+  if (!groupPlayers[groupName]) groupPlayers[groupName] = {};
+  if (!groupPlayers[groupName][teamName])
+    groupPlayers[groupName][teamName] = [];
+
+  // Tambah pemain
+  groupPlayers[groupName][teamName].push({
+    id: id,
+    name: name,
+    category: category,
+    class: classVal,
+    goals: 0, // Gol awal 0
+  });
+
+  // Reset form
+  nameInput.value = "";
+  nameInput.focus();
+
+  // Update UI & save
+  updatePlayerUI();
+  savePlayerData();
+  showToast(`✅ ${name} berhasil ditambahkan!`, "success");
+}
+
+// Hapus pemain dari tim
+function deletePlayer(playerId) {
+  if (!confirm("Hapus pemain ini?")) return;
+
+  const groupName = getCurrentGroupName();
+  const teamName = selectedTeamForPlayer || getCurrentTeamName();
+
+  if (!groupName || !teamName) return;
+
+  const players = groupPlayers[groupName]?.[teamName] || [];
+  const index = players.findIndex((p) => p.id === playerId);
+
+  if (index === -1) return;
+
+  const playerName = players[index].name;
+  players.splice(index, 1);
+
+  updatePlayerUI();
+  savePlayerData();
+  showToast(`🗑️ ${playerName} dihapus`, "info");
+}
+
+// Simpan data pemain ke Firebase
+function savePlayerData() {
+  console.log("💾 Saving player data...");
+
+  // Data yang akan disimpan (merge dengan data yang sudah ada)
+  const data = {
+    groupPlayers: groupPlayers,
+    groupGoalScorers: groupGoalScorers,
+    updatedAt: new Date().toISOString(),
+  };
+
+  db.collection("groups")
+    .doc("data")
+    .set(data, { merge: true })
+    .then(() => {
+      console.log("✅ Player data saved");
+    })
+    .catch((err) => {
+      console.error("❌ Error saving players:", err);
+      showToast("⚠️ Gagal menyimpan data pemain!", "error");
+    });
 }
 
 // ============================================

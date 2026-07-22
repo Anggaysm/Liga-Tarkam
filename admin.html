@@ -88,6 +88,9 @@
             </button>
           </div>
 
+          <!-- ========================================== -->
+          <!-- GROUP MANAGEMENT -->
+          <!-- ========================================== -->
           <div class="card">
             <div class="card-header">
               <h2>📝 Kelola Grup</h2>
@@ -145,6 +148,128 @@
             </div>
           </div>
 
+          <!-- ========================================== -->
+          <!-- 🔥 PLAYER MANAGEMENT - TAMBAHAN BARU       -->
+          <!-- ========================================== -->
+          <div
+            class="card card-players"
+            id="playerManagement"
+            style="display: none"
+          >
+            <div class="card-header">
+              <h2>👥 Manajemen Pemain</h2>
+              <div
+                style="
+                  display: flex;
+                  gap: 8px;
+                  align-items: center;
+                  flex-wrap: wrap;
+                "
+              >
+                <span class="badge" id="playerCount">0 pemain</span>
+                <span
+                  class="badge"
+                  id="teamSelectorBadge"
+                  style="background: rgba(251, 191, 36, 0.15); color: #fbbf24"
+                >
+                  Tim: -
+                </span>
+              </div>
+            </div>
+
+            <!-- Pilih Tim -->
+            <div
+              style="
+                margin-bottom: 12px;
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                align-items: center;
+              "
+            >
+              <label style="font-size: 13px; color: var(--text-secondary)"
+                >Pilih Tim:</label
+              >
+              <select
+                id="teamSelector"
+                class="input-text"
+                style="flex: 1; min-width: 150px; padding: 8px 12px"
+                onchange="onTeamChange()"
+              >
+                <option value="">-- Pilih Tim --</option>
+              </select>
+            </div>
+
+            <!-- Daftar Pemain -->
+            <div id="playerList">
+              <div class="empty-state" style="padding: 20px">
+                <span class="empty-icon">👤</span>
+                <h3>Belum ada pemain</h3>
+                <p>Tambah pemain untuk tim ini</p>
+              </div>
+            </div>
+
+            <!-- Form Tambah Pemain -->
+            <div
+              class="player-form"
+              style="
+                margin-top: 16px;
+                padding-top: 16px;
+                border-top: 1px solid var(--border-color);
+              "
+            >
+              <h4
+                style="
+                  color: var(--text-secondary);
+                  margin-bottom: 10px;
+                  font-size: 14px;
+                "
+              >
+                ➕ Tambah Pemain
+              </h4>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <input
+                  type="text"
+                  id="playerNameInput"
+                  placeholder="Nama pemain..."
+                  class="input-text"
+                  style="flex: 2; min-width: 150px"
+                />
+                <select
+                  id="playerCategoryInput"
+                  class="input-text"
+                  style="flex: 1; min-width: 100px"
+                  onchange="updateClassOptions()"
+                >
+                  <option value="SD">SD</option>
+                  <option value="SMP">SMP</option>
+                </select>
+                <select
+                  id="playerClassInput"
+                  class="input-text"
+                  style="flex: 1; min-width: 80px"
+                >
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                  <option value="9">9</option>
+                </select>
+                <button
+                  onclick="addPlayer()"
+                  class="btn-success"
+                  style="flex: 0.5; min-width: 100px"
+                >
+                  ➕ Tambah
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========================================== -->
+          <!-- STATS                                       -->
+          <!-- ========================================== -->
           <div class="stats-grid" id="statsGrid">
             <div class="stat-card">
               <span class="stat-icon">🏟️</span>
@@ -168,6 +293,9 @@
             </div>
           </div>
 
+          <!-- ========================================== -->
+          <!-- MAIN GRID                                  -->
+          <!-- ========================================== -->
           <div class="grid grid-3">
             <div class="card card-standings">
               <div class="card-header">
@@ -231,6 +359,9 @@
             </div>
           </div>
 
+          <!-- ========================================== -->
+          <!-- RESET & UNDO                               -->
+          <!-- ========================================== -->
           <div class="card">
             <div class="actions-row">
               <button

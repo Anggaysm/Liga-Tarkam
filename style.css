@@ -1194,3 +1194,159 @@ textarea::placeholder {
     -webkit-print-color-adjust: exact;
   }
 }
+
+.card-players {
+  margin-top: 14px;
+}
+
+.player-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: var(--transition);
+  border-left: 3px solid transparent;
+}
+
+.player-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.player-item .player-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.player-item .player-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.player-item .player-badge {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.player-badge.sd {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+.player-badge.smp {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.player-item .player-goals {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.player-item .player-goals strong {
+  color: var(--text-primary);
+}
+
+.player-item .player-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  min-height: auto;
+  min-width: auto;
+  transition: var(--transition);
+}
+
+.player-item .player-delete:hover {
+  color: #ef4444;
+}
+
+.player-form select.input-text {
+  appearance: auto;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  font-size: 15px;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.player-form select.input-text:focus {
+  outline: none;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+}
+
+.player-form select.input-text option {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   TOP SCORER
+   ============================================ */
+.top-scorer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-scorer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.top-scorer-item .rank {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-secondary);
+  min-width: 30px;
+}
+
+.top-scorer-item .rank.gold {
+  color: #fbbf24;
+}
+.top-scorer-item .rank.silver {
+  color: #94a3b8;
+}
+.top-scorer-item .rank.bronze {
+  color: #d97706;
+}
+
+.top-scorer-item .info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.top-scorer-item .info .name {
+  font-weight: 600;
+}
+
+.top-scorer-item .info .badge {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.top-scorer-item .goals {
+  font-weight: 700;
+  color: var(--text-primary);
+}
